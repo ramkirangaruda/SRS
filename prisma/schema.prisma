@@ -1,0 +1,49 @@
+// This is the Prisma schema — the single source of truth for our database.
+// Running `npm run db:push` reads this file and creates matching SQLite tables.
+// Running `prisma generate` produces a fully typed client from these models.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // SQLite: the whole database is one file (prisma/dev.db). Zero setup, ideal
+  // for development. Swapping to Postgres later is a one-line change here.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A User is anyone who can log in. We deliberately do NOT store a plaintext
+// password — only `passwordHash`, a bcrypt hash that can't be reversed.
+model User {
+  id           String   @id @default(cuid()) // cuid = collision-resistant unique id.
+  email        String   @unique               // Used as the login identifier.
+  name         String
+  passwordHash String
+  // Role drives access control. SQLite + Prisma can't use a true enum, so we
+  // store a string and constrain valid values in code (see lib/roles.ts).
+  // Expected values: "PRINCIPAL" or "PARENT".
+  role         String   @default("PARENT")
+
+  // A PARENT can be linked to one or more students (their children). This is a
+  // one-to-many relation: one User -> many Students.
+  children     Student[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// A Student record. In Phase 1 this mainly gives the parent dashboard real data
+// to show; later phases (grades, attendance) will build on it.
+model Student {
+  id          String   @id @default(cuid())
+  name        String
+  grade       String   // e.g. "Grade 5".
+
+  // Link back to the parent User. `parentId` is the foreign key column.
+  parent      User?    @relation(fields: [parentId], references: [id])
+  parentId    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

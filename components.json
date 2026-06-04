@@ -1,0 +1,17 @@
+{
+  "comment": "Config for the shadcn/ui CLI. shadcn isn't a dependency you install — it copies component source code into your repo so you fully own and can edit it. This file tells the CLI where things live and which style to use.",
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "app/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils"
+  }
+}

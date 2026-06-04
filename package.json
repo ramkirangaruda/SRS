@@ -1,0 +1,51 @@
+{
+  "name": "schoolsync",
+  "version": "0.1.0",
+  "private": true,
+  "comment": "Scripts are the commands you'll run while developing. 'dev' runs the hot-reloading dev server; 'db:push' syncs the Prisma schema to SQLite; 'db:seed' loads our demo users.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "comment": "Tells Prisma how to run our TypeScript seed file (via tsx, a zero-config TS runner).",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "next-auth": "4.24.7",
+    "@prisma/client": "5.17.0",
+    "bcryptjs": "2.4.3",
+    "zod": "3.23.8",
+    "@ducanh2912/next-pwa": "10.2.7",
+    "class-variance-authority": "0.7.0",
+    "clsx": "2.1.1",
+    "tailwind-merge": "2.4.0",
+    "tailwindcss-animate": "1.0.7",
+    "lucide-react": "0.408.0",
+    "@radix-ui/react-slot": "1.1.0",
+    "@radix-ui/react-label": "2.1.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.3",
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@types/bcryptjs": "2.4.6",
+    "prisma": "5.17.0",
+    "tsx": "4.16.2",
+    "tailwindcss": "3.4.6",
+    "postcss": "8.4.39",
+    "autoprefixer": "10.4.19",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.5"
+  }
+}

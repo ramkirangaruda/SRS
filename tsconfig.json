@@ -1,0 +1,26 @@
+{
+  // TypeScript configuration. This controls how TS checks our code and how imports resolve.
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true, // Catch the most bugs at compile time (null checks, implicit any, etc.).
+    "noEmit": true, // Next.js (via SWC/Babel) does the actual compiling, not tsc.
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    // The "@/..." alias lets us write `import { prisma } from "@/lib/prisma"`
+    // instead of long relative paths like "../../../lib/prisma".
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

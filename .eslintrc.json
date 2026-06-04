@@ -1,0 +1,5 @@
+{
+  // ESLint catches code-quality issues. "next/core-web-vitals" is Next.js's
+  // recommended rule set, tuned for performance and React best practices.
+  "extends": "next/core-web-vitals"
+}

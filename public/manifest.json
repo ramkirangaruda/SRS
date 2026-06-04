@@ -1,0 +1,24 @@
+{
+  "comment": "The Web App Manifest is what makes SchoolSync installable as a PWA. The browser reads this to know the app's name, colors, and icons when a user taps 'Add to Home Screen'.",
+  "name": "SchoolSync",
+  "short_name": "SchoolSync",
+  "description": "School management for principals and parents",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
