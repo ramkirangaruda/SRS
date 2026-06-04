@@ -23,13 +23,18 @@ export type NavItem = {
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   [ROLES.PRINCIPAL]: [
     { label: "Dashboard", href: "/dashboard/principal", icon: "dashboard" },
-    { label: "Students", href: "/dashboard/principal/students", icon: "students" },
+    { label: "Students", href: "/principal/students", icon: "students" },
     { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
+  [ROLES.TEACHER]: [
+    { label: "Dashboard", href: "/dashboard/teacher", icon: "dashboard" },
+    { label: "Students", href: "/dashboard/teacher/students", icon: "students" },
+    { label: "Settings", href: "/dashboard/teacher/settings", icon: "settings" },
+  ],
   [ROLES.PARENT]: [
     { label: "Dashboard", href: "/dashboard/parent", icon: "dashboard" },
-    { label: "Children", href: "/dashboard/parent/children", icon: "children" },
+    { label: "Children", href: "/parent/children", icon: "children" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };

@@ -23,6 +23,9 @@
 /public/sw.js.map
 /public/workbox-*.js.map
 
+# User-uploaded files (student photos) — runtime data, not source.
+/public/uploads
+
 # OS / editor noise.
 .DS_Store
 *.log

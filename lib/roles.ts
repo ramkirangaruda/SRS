@@ -6,20 +6,24 @@
 // TypeScript narrow types precisely.
 export const ROLES = {
   PRINCIPAL: "PRINCIPAL",
+  TEACHER: "TEACHER",
   PARENT: "PARENT",
 } as const;
 
-// A union type: Role is exactly "PRINCIPAL" | "PARENT".
+// A union type: Role is exactly "PRINCIPAL" | "TEACHER" | "PARENT".
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
 // Each role's "home" dashboard. Used after login and by the middleware to send
-// users to the right place.
+// users to the right place. (The teacher dashboard UI arrives in a later phase;
+// the route is reserved here so teacher logins route consistently.)
 export const ROLE_HOME: Record<Role, string> = {
   PRINCIPAL: "/dashboard/principal",
+  TEACHER: "/dashboard/teacher",
   PARENT: "/dashboard/parent",
 };
 
-// Runtime check + type guard: confirms a raw string is a valid role.
+// Runtime check + type guard: confirms a raw string is a valid role. Comparing
+// against the ROLES values keeps this in sync if we add more roles.
 export function isRole(value: string): value is Role {
-  return value === ROLES.PRINCIPAL || value === ROLES.PARENT;
+  return (Object.values(ROLES) as string[]).includes(value);
 }

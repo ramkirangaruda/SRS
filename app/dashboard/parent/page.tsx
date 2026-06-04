@@ -9,10 +9,12 @@ export default async function ParentDashboard() {
   const session = await getServerSession(authOptions);
 
   // Fetch children belonging to THIS parent. Scoping by session.user.id is what
-  // keeps one parent from ever seeing another's children.
+  // keeps one parent from ever seeing another's children. We `include` the class
+  // and section relations so we can show where each child is enrolled.
   const children = session?.user?.id
     ? await prisma.student.findMany({
         where: { parentId: session.user.id },
+        include: { class: true, section: true },
         orderBy: { name: "asc" },
       })
     : [];
@@ -40,7 +42,10 @@ export default async function ParentDashboard() {
                   <CardTitle className="text-base">{child.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
-                  {child.grade}
+                  {/* Show class + section, plus the admission number for reference. */}
+                  Class {child.class.name}
+                  {child.section ? ` – Section ${child.section.name}` : ""}
+                  <span className="mt-1 block text-xs">#{child.admissionNumber}</span>
                 </CardContent>
               </Card>
             ))}

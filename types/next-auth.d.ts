@@ -11,15 +11,17 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      schoolId: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
     };
   }
 
-  // The object returned from authorize() — we added `role`.
+  // The object returned from authorize() — we added `role` and `schoolId`.
   interface User {
     role: string;
+    schoolId: string;
   }
 }
 
@@ -27,5 +29,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: string;
+    schoolId: string;
   }
 }

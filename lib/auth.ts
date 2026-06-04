@@ -42,18 +42,19 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
 
-        // 3. Compare the typed password against the stored bcrypt hash. bcrypt
-        //    re-hashes the input with the same salt and checks for a match — the
-        //    original password is never decrypted (it can't be).
-        const passwordValid = await bcrypt.compare(password, user.passwordHash);
+        // 3. Compare the typed password against the stored bcrypt hash (the
+        //    `password` column holds the hash). bcrypt re-hashes the input with
+        //    the same salt and checks for a match — the original is never decrypted.
+        const passwordValid = await bcrypt.compare(password, user.password);
         if (!passwordValid) return null;
 
         // 4. Safety net: ensure the stored role is one we recognize.
         const role = isRole(user.role) ? user.role : ROLES.PARENT;
 
         // 5. Whatever we return becomes the seed for the JWT (see jwt callback).
-        //    We intentionally do NOT return the passwordHash.
-        return { id: user.id, email: user.email, name: user.name, role };
+        //    We intentionally do NOT return the password hash. We DO include
+        //    schoolId so every later query can be scoped to this user's school.
+        return { id: user.id, email: user.email, name: user.name, role, schoolId: user.schoolId };
       },
     }),
   ],
@@ -67,6 +68,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as { role: string }).role;
+        token.schoolId = (user as { schoolId: string }).schoolId;
       }
       return token;
     },
@@ -76,6 +78,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.schoolId = token.schoolId as string;
       }
       return session;
     },

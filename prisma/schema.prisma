@@ -1,49 +1,982 @@
-// This is the Prisma schema — the single source of truth for our database.
-// Running `npm run db:push` reads this file and creates matching SQLite tables.
-// Running `prisma generate` produces a fully typed client from these models.
+// ============================================================================
+// SchoolSync database schema — the single source of truth for every table.
+//
+// SQLite limitations we design around (all handled with String):
+//   1. No native enums      -> status/role/type fields are String. Allowed values
+//                              are documented in a comment next to each field.
+//   2. No Json column type   -> JSON data (timetable periods, meal menus) is
+//                              stored as a stringified JSON String.
+//   3. No scalar lists       -> "attachments" (many files) is a JSON String array.
+//
+// Conventions:
+//   - Every model has id (cuid), createdAt, updatedAt.
+//   - Foreign keys end in "Id" and carry an @@index (we query by them constantly).
+//   - Frequently filtered fields (date, status, admissionNumber) are also indexed.
+// ============================================================================
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  // SQLite: the whole database is one file (prisma/dev.db). Zero setup, ideal
-  // for development. Swapping to Postgres later is a one-line change here.
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-// A User is anyone who can log in. We deliberately do NOT store a plaintext
-// password — only `passwordHash`, a bcrypt hash that can't be reversed.
-model User {
-  id           String   @id @default(cuid()) // cuid = collision-resistant unique id.
-  email        String   @unique               // Used as the login identifier.
-  name         String
-  passwordHash String
-  // Role drives access control. SQLite + Prisma can't use a true enum, so we
-  // store a string and constrain valid values in code (see lib/roles.ts).
-  // Expected values: "PRINCIPAL" or "PARENT".
-  role         String   @default("PARENT")
+// ----------------------------------------------------------------------------
+// CORE
+// ----------------------------------------------------------------------------
 
-  // A PARENT can be linked to one or more students (their children). This is a
-  // one-to-many relation: one User -> many Students.
+// The tenant root. Almost every other record carries a schoolId pointing here,
+// which is what makes the app "multi-school" ready: data is partitioned per school.
+model School {
+  id                 String   @id @default(cuid())
+  name               String
+  address            String?
+  logo               String?
+  phone              String?
+  email              String?
+  activeAcademicYear String? // Convenience label, e.g. "2025-2026".
+
+  // Back-relations: one School has many of nearly everything. These let us write
+  // queries like `prisma.school.findFirst({ include: { students: true } })`.
+  users              User[]
+  students           Student[]
+  classes            Class[]
+  academicYears      AcademicYear[]
+  admissionQueries   AdmissionQuery[]
+  enquiries          Enquiry[]
+  enquiryCategories  EnquiryCategory[]
+  broadcastMessages  BroadcastMessage[]
+  feedbacks          Feedback[]
+  schoolDiaries      SchoolDiary[]
+  feeStructures      FeeStructure[]
+  feePayments        FeePayment[]
+  homeworks          Homework[]
+  subjects           Subject[]
+  curriculums        Curriculum[]
+  timetables         Timetable[]
+  testReports        TestReport[]
+  progressReports    ProgressReport[]
+  eLearningCategories ELearningCategory[]
+  tutorials          Tutorial[]
+  assignments        Assignment[]
+  events             Event[]
+  holidays           Holiday[]
+  mealCalendars      MealCalendar[]
+  meetingGroups      MeetingGroup[]
+  daycareHistories   DaycareHistory[]
+  galleryAlbums      GalleryAlbum[]
+  videos             Video[]
+  staffMembers       StaffMember[]
+  virtualClassrooms  VirtualClassroom[]
+  visitorRegisters   VisitorRegister[]
+  planners           Planner[]
+  resources          Resource[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// Anyone who can log in. role is "PRINCIPAL" | "TEACHER" | "PARENT" (validated in
+// lib/roles.ts). We store passwordHash (bcrypt), never plaintext.
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  password     String // bcrypt hash. Named per spec; treat as the hash.
+  phone        String?
+  role         String   @default("PARENT")
+  avatar       String?
+
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  // A PARENT links to their children (1:N). Single relation -> no relation name.
   children     Student[]
+
+  // Every place a User can act gets its own back-relation. Where a model touches
+  // User more than once (Feedback) we MUST name the relations to disambiguate.
+  attendancesMarked        Attendance[]
+  broadcastMessages        BroadcastMessage[]
+  feedbacksGiven           Feedback[]          @relation("FeedbackParent")
+  feedbacksReplied         Feedback[]          @relation("FeedbackRepliedBy")
+  schoolDiaries            SchoolDiary[]
+  feePaymentsCollected     FeePayment[]
+  homeworksAssigned        Homework[]
+  tutorialsUploaded        Tutorial[]
+  assignmentsUploaded      Assignment[]
+  meetingGroupsCreated     MeetingGroup[]
+  meetingGroupMemberships  MeetingGroupMember[]
+  meetingMessages          MeetingMessage[]
+  daycareRecords           DaycareHistory[]
+  staffMember              StaffMember? // 1:1
+  virtualClassroomsHosted  VirtualClassroom[]
+  plannersCreated          Planner[]
+  resourcesUploaded        Resource[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([role])
 }
 
-// A Student record. In Phase 1 this mainly gives the parent dashboard real data
-// to show; later phases (grades, attendance) will build on it.
+// A pupil. admissionNumber is unique (front-desk lookup key). classId required;
+// sectionId/parentId optional so a student can exist before full assignment.
 model Student {
+  id              String   @id @default(cuid())
+  name            String
+  admissionNumber String   @unique
+  dateOfBirth     DateTime?
+  gender          String? // "MALE" | "FEMALE" | "OTHER"
+  bloodGroup      String?
+  address         String?
+  photo           String?
+
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id])
+  sectionId String?
+  section   Section? @relation(fields: [sectionId], references: [id])
+  parentId  String?
+  parent    User?    @relation(fields: [parentId], references: [id])
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+
+  // Everything that accumulates per student over time.
+  attendances           Attendance[]
+  feePayments           FeePayment[]
+  testReports           TestReport[]
+  progressReports       ProgressReport[]
+  assignmentSubmissions AssignmentSubmission[]
+  daycareHistories      DaycareHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([sectionId])
+  @@index([parentId])
+}
+
+// A grade level, e.g. "1st". Holds sections, students, subjects, fees, etc.
+model Class {
+  id       String @id @default(cuid())
+  name     String
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id])
+
+  sections          Section[]
+  students          Student[]
+  subjects          Subject[]
+  feeStructures     FeeStructure[]
+  homeworks         Homework[]
+  curriculums       Curriculum[]
+  timetables        Timetable[]
+  schoolDiaries     SchoolDiary[]
+  tutorials         Tutorial[]
+  assignments       Assignment[]
+  virtualClassrooms VirtualClassroom[]
+  planners          Planner[]
+  broadcastMessages BroadcastMessage[] // BroadcastMessage.targetClassId (nullable)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+// A division within a class, e.g. "A". Deleting a class cascades its sections.
+model Section {
+  id      String @id @default(cuid())
+  name    String
+  classId String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  students   Student[]
+  homeworks  Homework[]
+  timetables Timetable[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([classId])
+}
+
+// An academic year, e.g. "2025-2026". isActive flags the current one.
+model AcademicYear {
+  id        String   @id @default(cuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+
+  feeStructures   FeeStructure[]
+  progressReports ProgressReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([isActive])
+}
+
+// ----------------------------------------------------------------------------
+// ADMISSION & ENQUIRY
+// ----------------------------------------------------------------------------
+
+// A prospective admission. status drives the review pipeline.
+model AdmissionQuery {
+  id              String   @id @default(cuid())
+  studentName     String
+  parentName      String
+  phone           String
+  email           String?
+  classAppliedFor String
+  status          String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  notes           String?
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([status])
+}
+
+// A general enquiry, bucketed by category. status: OPEN | RESOLVED.
+model Enquiry {
+  id         String          @id @default(cuid())
+  parentName String
+  phone      String
+  email      String?
+  subject    String
+  message    String
+  status     String          @default("OPEN") // OPEN | RESOLVED
+  categoryId String?
+  category   EnquiryCategory? @relation(fields: [categoryId], references: [id])
+  schoolId   String
+  school     School          @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([status])
+  @@index([categoryId])
+}
+
+// Categories for enquiries, e.g. "Fees", "Transport".
+model EnquiryCategory {
+  id        String    @id @default(cuid())
+  name      String
+  schoolId  String
+  school    School    @relation(fields: [schoolId], references: [id])
+  enquiries Enquiry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+// ----------------------------------------------------------------------------
+// ATTENDANCE
+// ----------------------------------------------------------------------------
+
+// One row per student per day. Indexed on date for "today's attendance" queries.
+model Attendance {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date       DateTime
+  status     String   // PRESENT | ABSENT | LATE | HALF_DAY
+  markedById String
+  markedBy   User     @relation(fields: [markedById], references: [id])
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One attendance record per student per day — enforced and fast to look up.
+  @@unique([studentId, date])
+  @@index([date])
+  @@index([status])
+  @@index([markedById])
+}
+
+// ----------------------------------------------------------------------------
+// COMMUNICATION
+// ----------------------------------------------------------------------------
+
+// A one-way announcement. targetClassId is optional (null = whole school).
+model BroadcastMessage {
+  id            String   @id @default(cuid())
+  title         String
+  message       String
+  sentById      String
+  sentBy        User     @relation(fields: [sentById], references: [id])
+  targetRole    String   @default("ALL") // ALL | PARENTS | TEACHERS
+  targetClassId String?
+  targetClass   Class?   @relation(fields: [targetClassId], references: [id])
+  attachments   String? // JSON array of file URLs.
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([sentById])
+  @@index([targetClassId])
+}
+
+// A two-way parent message + staff reply. Two relations to User => named.
+model Feedback {
+  id           String   @id @default(cuid())
+  parentId     String
+  parent       User     @relation("FeedbackParent", fields: [parentId], references: [id])
+  subject      String
+  message      String
+  reply        String?
+  repliedById  String?
+  repliedBy    User?    @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
+  status       String   @default("PENDING") // PENDING | REPLIED
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([parentId])
+  @@index([status])
+}
+
+// A dated diary note for a class.
+model SchoolDiary {
+  id           String   @id @default(cuid())
+  title        String
+  content      String
+  date         DateTime
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id])
+  postedById   String
+  postedBy     User     @relation(fields: [postedById], references: [id])
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([date])
+}
+
+// ----------------------------------------------------------------------------
+// FEES
+// ----------------------------------------------------------------------------
+
+// What a class owes for a given academic year.
+model FeeStructure {
+  id             String       @id @default(cuid())
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  totalAmount    Float
+  description    String?
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([academicYearId])
+}
+
+// An actual payment by a student. receiptNumber unique for audit.
+model FeePayment {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  amount        Float
+  date          DateTime
+  mode          String   // CASH | ONLINE | CHEQUE
+  receiptNumber String   @unique
+  notes         String?
+  collectedById String
+  collectedBy   User     @relation(fields: [collectedById], references: [id])
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([date])
+  @@index([collectedById])
+}
+
+// ----------------------------------------------------------------------------
+// ACADEMIC
+// ----------------------------------------------------------------------------
+
+// A subject offered within a class, e.g. "Mathematics" for "1st".
+model Subject {
+  id       String @id @default(cuid())
+  name     String
+  classId  String
+  class    Class  @relation(fields: [classId], references: [id])
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id])
+
+  curriculums Curriculum[]
+  testReports TestReport[]
+  homeworks   Homework[]
+  resources   Resource[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+}
+
+// Assigned homework. status: ACTIVE | ARCHIVED.
+model Homework {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  dueDate      DateTime
+  attachments  String? // JSON array of file URLs.
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id])
+  sectionId    String?
+  section      Section? @relation(fields: [sectionId], references: [id])
+  subjectId    String
+  subject      Subject  @relation(fields: [subjectId], references: [id])
+  assignedById String
+  assignedBy   User     @relation(fields: [assignedById], references: [id])
+  status       String   @default("ACTIVE")
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([sectionId])
+  @@index([subjectId])
+  @@index([assignedById])
+  @@index([dueDate])
+  @@index([status])
+}
+
+// Curriculum document for a subject.
+model Curriculum {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  fileUrl     String?
+  subjectId   String
+  subject     Subject @relation(fields: [subjectId], references: [id])
+  classId     String
+  class       Class   @relation(fields: [classId], references: [id])
+  schoolId    String
+  school      School  @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([subjectId])
+  @@index([classId])
+}
+
+// A weekly timetable for a class/section. periods is JSON (time/subject/teacher).
+model Timetable {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id])
+  sectionId String?
+  section   Section? @relation(fields: [sectionId], references: [id])
+  dayOfWeek String   // "MONDAY".."SUNDAY"
+  periods   String   // JSON: [{ time, subject, teacher }, ...]
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([sectionId])
+}
+
+// A single test result for a student in a subject.
+model TestReport {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  subjectId     String
+  subject       Subject  @relation(fields: [subjectId], references: [id])
+  testName      String
+  totalMarks    Float
+  obtainedMarks Float
+  grade         String?
+  date          DateTime
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([date])
+}
+
+// A term report card for a student. term: TERM1 | TERM2 | TERM3.
+model ProgressReport {
+  id             String       @id @default(cuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  term           String
+  remarks        String?
+  overallGrade   String?
+  reportFileUrl  String?
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([academicYearId])
+}
+
+// ----------------------------------------------------------------------------
+// E-LEARNING
+// ----------------------------------------------------------------------------
+
+// Category for tutorials & assignments.
+model ELearningCategory {
+  id          String       @id @default(cuid())
+  name        String
+  schoolId    String
+  school      School       @relation(fields: [schoolId], references: [id])
+  tutorials   Tutorial[]
+  assignments Assignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+// A learning video/resource.
+model Tutorial {
+  id           String            @id @default(cuid())
+  title        String
+  description  String?
+  videoUrl     String?
+  fileUrl      String?
+  categoryId   String?
+  category     ELearningCategory? @relation(fields: [categoryId], references: [id])
+  classId      String?
+  class        Class?            @relation(fields: [classId], references: [id])
+  uploadedById String
+  uploadedBy   User              @relation(fields: [uploadedById], references: [id])
+  schoolId     String
+  school       School            @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([categoryId])
+  @@index([classId])
+  @@index([uploadedById])
+}
+
+// An e-learning assignment students submit against.
+model Assignment {
+  id           String            @id @default(cuid())
+  title        String
+  description  String?
+  dueDate      DateTime
+  fileUrl      String?
+  categoryId   String?
+  category     ELearningCategory? @relation(fields: [categoryId], references: [id])
+  classId      String?
+  class        Class?            @relation(fields: [classId], references: [id])
+  uploadedById String
+  uploadedBy   User              @relation(fields: [uploadedById], references: [id])
+  schoolId     String
+  school       School            @relation(fields: [schoolId], references: [id])
+
+  submissions  AssignmentSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([categoryId])
+  @@index([classId])
+  @@index([uploadedById])
+  @@index([dueDate])
+}
+
+// A student's submission. One per (assignment, student); deleting the parent
+// assignment cascades its submissions.
+model AssignmentSubmission {
+  id           String     @id @default(cuid())
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id])
+  fileUrl      String?
+  submittedAt  DateTime   @default(now())
+  grade        String?
+  feedback     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------------------------
+// EVENTS & CALENDAR
+// ----------------------------------------------------------------------------
+
+// A calendar event. type: HOLIDAY | EXAM | SPORTS | CULTURAL | OTHER.
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  type        String   @default("OTHER")
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([date])
+  @@index([type])
+}
+
+// A holiday entry (kept separate from Event for simple holiday listings).
+model Holiday {
   id          String   @id @default(cuid())
   name        String
-  grade       String   // e.g. "Grade 5".
+  date        DateTime
+  description String?
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
 
-  // Link back to the parent User. `parentId` is the foreign key column.
-  parent      User?    @relation(fields: [parentId], references: [id])
-  parentId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@index([schoolId])
+  @@index([date])
+}
+
+// Daily meal plan. menu is JSON; mealType/type are enum-like Strings.
+model MealCalendar {
+  id        String   @id @default(cuid())
+  date      DateTime
+  mealType  String   // BREAKFAST | LUNCH | SNACK
+  menu      String   // JSON array of items.
+  type      String   @default("SCHOOL") // SCHOOL | DAYCARE
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([date])
+}
+
+// ----------------------------------------------------------------------------
+// MEETING ROOM (group chat)
+// ----------------------------------------------------------------------------
+
+// A chat group. Members are modeled with the MeetingGroupMember join table (M:N).
+model MeetingGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+
+  members  MeetingGroupMember[]
+  messages MeetingMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([createdById])
+}
+
+// JOIN TABLE for the User<->MeetingGroup many-to-many. The unique pair prevents
+// adding the same user to a group twice.
+model MeetingGroupMember {
+  id      String       @id @default(cuid())
+  groupId String
+  group   MeetingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User         @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+// A message in a group. Deleting the group cascades its messages.
+model MeetingMessage {
+  id          String       @id @default(cuid())
+  groupId     String
+  group       MeetingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User         @relation(fields: [senderId], references: [id])
+  message     String
+  attachments String? // JSON array of file URLs.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// DAYCARE
+// ----------------------------------------------------------------------------
+
+// A daily daycare log for a student.
+model DaycareHistory {
+  id           String    @id @default(cuid())
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date         DateTime
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  activities   String?
+  meals        String?
+  nap          String?
+  notes        String?
+  recordedById String
+  recordedBy   User      @relation(fields: [recordedById], references: [id])
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([date])
+  @@index([recordedById])
+}
+
+// ----------------------------------------------------------------------------
+// GALLERY
+// ----------------------------------------------------------------------------
+
+// A photo album. Images cascade-delete with the album.
+model GalleryAlbum {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  coverImage  String?
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+
+  images GalleryImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+model GalleryImage {
+  id       String       @id @default(cuid())
+  albumId  String
+  album    GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  imageUrl String
+  caption  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([albumId])
+}
+
+// A standalone video (not tied to an album).
+model Video {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  videoUrl     String
+  thumbnailUrl String?
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+// ----------------------------------------------------------------------------
+// STAFF
+// ----------------------------------------------------------------------------
+
+// The HR profile for a staff User (1:1). userId is unique to enforce one-to-one.
+model StaffMember {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  designation   String?
+  department    String?
+  joiningDate   DateTime?
+  qualification String?
+  experience    String?
+  salary        Float?
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+// ----------------------------------------------------------------------------
+// VIRTUAL CLASSROOM
+// ----------------------------------------------------------------------------
+
+// A scheduled online class. status: SCHEDULED | LIVE | COMPLETED.
+model VirtualClassroom {
+  id          String   @id @default(cuid())
+  title       String
+  meetingLink String
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  scheduledAt DateTime
+  duration    Int?     // minutes
+  hostId      String
+  host        User     @relation(fields: [hostId], references: [id])
+  status      String   @default("SCHEDULED")
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([hostId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// VISITORS
+// ----------------------------------------------------------------------------
+
+// Front-desk visitor log.
+model VisitorRegister {
+  id            String    @id @default(cuid())
+  name          String
+  phone         String?
+  purpose       String?
+  visitingWhom  String?
+  checkInTime   DateTime  @default(now())
+  checkOutTime  DateTime?
+  idProof       String?
+  schoolId      String
+  school        School    @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([checkInTime])
+}
+
+// ----------------------------------------------------------------------------
+// PLANNERS & RESOURCES
+// ----------------------------------------------------------------------------
+
+// A teacher planner. type: LESSON_PLAN | ACTIVITY | OTHER.
+model Planner {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   @default("OTHER")
+  fileUrl     String?
+  classId     String?
+  class       Class?   @relation(fields: [classId], references: [id])
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classId])
+  @@index([createdById])
+  @@index([type])
+}
+
+// A shared resource. type: DOCUMENT | VIDEO | LINK.
+model Resource {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  fileUrl      String?
+  type         String   @default("DOCUMENT")
+  subjectId    String?
+  subject      Subject? @relation(fields: [subjectId], references: [id])
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([subjectId])
+  @@index([uploadedById])
+  @@index([type])
 }
