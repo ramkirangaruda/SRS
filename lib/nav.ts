@@ -18,7 +18,8 @@ export type IconName =
   | "children"
   | "settings"
   | "fees"
-  | "attendance";
+  | "attendance"
+  | "homework";
 
 export type NavItem = {
   label: string;
@@ -33,6 +34,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Students", href: "/principal/students", icon: "students" },
     { label: "Fees", href: "/principal/fees", icon: "fees" },
     { label: "Attendance", href: "/principal/attendance", icon: "attendance" },
+    { label: "Homework", href: "/principal/homework", icon: "homework" },
     { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
@@ -46,6 +48,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Children", href: "/parent/children", icon: "children" },
     { label: "Fees", href: "/parent/fees", icon: "fees" },
     { label: "Attendance", href: "/parent/attendance", icon: "attendance" },
+    { label: "Homework", href: "/parent/homework", icon: "homework" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };

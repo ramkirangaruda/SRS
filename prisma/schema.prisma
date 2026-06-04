@@ -460,13 +460,17 @@ model Homework {
   title        String
   description  String
   dueDate      DateTime
-  attachments  String? // JSON array of file URLs.
+  // JSON array of attachment objects: [{ url, name, size, type }]. We store
+  // only this metadata — the actual file bytes live in object storage.
+  attachments  String?
   classId      String
   class        Class    @relation(fields: [classId], references: [id])
   sectionId    String?
   section      Section? @relation(fields: [sectionId], references: [id])
-  subjectId    String
-  subject      Subject  @relation(fields: [subjectId], references: [id])
+  // Subject is optional: homework must target at least a class, but tagging a
+  // subject is not mandatory.
+  subjectId    String?
+  subject      Subject? @relation(fields: [subjectId], references: [id])
   assignedById String
   assignedBy   User     @relation(fields: [assignedById], references: [id])
   status       String   @default("ACTIVE")

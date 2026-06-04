@@ -9,11 +9,13 @@ import { ArrowLeft } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { getStudentById, listClassesWithSections } from "@/lib/students";
 import { getStudentAttendance } from "@/lib/attendance";
+import { getHomeworkForClass } from "@/lib/homework";
 import { formatDate, getInitials } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AttendanceSummary } from "@/components/attendance/attendance-summary";
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
+import { DueBadge } from "@/components/homework/due-badge";
 import type { AttendanceStatus } from "@/lib/attendance-status";
 import { StudentDetailActions } from "@/components/students/student-detail-actions";
 
@@ -42,6 +44,9 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
     statusByDate[d.dateKey] = d.status;
     noteByDate[d.dateKey] = d.note;
   }
+
+  // Recent active homework for this student's class/section.
+  const homework = await getHomeworkForClass(student.classId, student.sectionId, schoolId, 5);
 
   return (
     <div className="space-y-6">
@@ -81,6 +86,7 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="homework">Homework</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -139,6 +145,31 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
                   noteByDate={noteByDate}
                 />
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="homework">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Recent Homework (this class)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {homework.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active homework for this class.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {homework.map((hw) => (
+                    <li key={hw.id} className="flex items-center justify-between gap-3 border-b pb-2 last:border-0">
+                      <Link href={`/principal/homework/${hw.id}`} className="text-sm font-medium hover:underline">
+                        {hw.title}
+                        <span className="ml-2 text-xs text-muted-foreground">{hw.subjectName ?? "General"}</span>
+                      </Link>
+                      <DueBadge dueDate={hw.dueDate} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
