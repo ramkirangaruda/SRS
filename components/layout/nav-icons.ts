@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Settings,
   Wallet,
+  CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -21,4 +22,5 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   children: GraduationCap,
   settings: Settings,
   fees: Wallet,
+  attendance: CalendarCheck,
 };

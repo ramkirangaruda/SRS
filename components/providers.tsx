@@ -7,7 +7,15 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
+import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      {children}
+      {/* Global toast host. Components call toast.success(...) from anywhere and
+          the notification renders here (e.g. "Marked attendance for 32 students"). */}
+      <Toaster richColors position="top-center" />
+    </SessionProvider>
+  );
 }

@@ -8,21 +8,40 @@ import { getServerSession } from "next-auth";
 import { ArrowLeft } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { getStudentById, listClassesWithSections } from "@/lib/students";
+import { getStudentAttendance } from "@/lib/attendance";
 import { formatDate, getInitials } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AttendanceSummary } from "@/components/attendance/attendance-summary";
+import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
+import type { AttendanceStatus } from "@/lib/attendance-status";
 import { StudentDetailActions } from "@/components/students/student-detail-actions";
 
 export default async function StudentDetailPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const schoolId = session!.user.schoolId;
 
-  const [student, classes] = await Promise.all([
+  // Current month, used for the Attendance tab.
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+
+  const [student, classes, attendance] = await Promise.all([
     getStudentById(params.id, schoolId),
     listClassesWithSections(schoolId),
+    getStudentAttendance(params.id, schoolId, year, month),
   ]);
 
   // Not found (or belongs to another school) → standard 404.
   if (!student) notFound();
+
+  // Project the attendance days into the lookups the calendar/summary need.
+  const statusByDate: Record<string, AttendanceStatus> = {};
+  const noteByDate: Record<string, string | null> = {};
+  for (const d of attendance?.days ?? []) {
+    statusByDate[d.dateKey] = d.status;
+    noteByDate[d.dateKey] = d.note;
+  }
 
   return (
     <div className="space-y-6">
@@ -56,54 +75,74 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      {/* Info cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Personal Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <InfoRow label="Full name" value={student.name} />
-            <InfoRow label="Admission number" value={student.admissionNumber} />
-            <InfoRow label="Date of birth" value={formatDate(student.dateOfBirth)} />
-            <InfoRow label="Gender" value={student.gender ?? "—"} />
-            <InfoRow label="Blood group" value={student.bloodGroup ?? "—"} />
-            <InfoRow label="Address" value={student.address ?? "—"} />
-          </CardContent>
-        </Card>
+      {/* Tabs: Profile + Attendance. The Tabs component is a Client Component,
+          but its panels are server-rendered content passed as children. */}
+      <Tabs defaultValue="profile">
+        <TabsList>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Parent / Guardian</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <InfoRow label="Name" value={student.parent?.name ?? "—"} />
-            <InfoRow label="Email" value={student.parent?.email ?? "—"} />
-            <InfoRow label="Phone" value={student.parent?.phone ?? "—"} />
-          </CardContent>
-        </Card>
+        <TabsContent value="profile">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Personal Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <InfoRow label="Full name" value={student.name} />
+                <InfoRow label="Admission number" value={student.admissionNumber} />
+                <InfoRow label="Date of birth" value={formatDate(student.dateOfBirth)} />
+                <InfoRow label="Gender" value={student.gender ?? "—"} />
+                <InfoRow label="Blood group" value={student.bloodGroup ?? "—"} />
+                <InfoRow label="Address" value={student.address ?? "—"} />
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Class Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <InfoRow label="Class" value={student.class?.name ?? "—"} />
-            <InfoRow label="Section" value={student.section?.name ?? "—"} />
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Parent / Guardian</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <InfoRow label="Name" value={student.parent?.name ?? "—"} />
+                <InfoRow label="Email" value={student.parent?.email ?? "—"} />
+                <InfoRow label="Phone" value={student.parent?.phone ?? "—"} />
+              </CardContent>
+            </Card>
 
-      {/* Placeholder for future tabs (fees, attendance, reports) so you can see
-          where Phase 4+ data will live. */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">More</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Fees, attendance, and report cards will appear here as tabs in a later phase.
-        </CardContent>
-      </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Class Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <InfoRow label="Class" value={student.class?.name ?? "—"} />
+                <InfoRow label="Section" value={student.section?.name ?? "—"} />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="attendance">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                This Month ({now.toLocaleString("en-US", { month: "long", year: "numeric" })})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {attendance && <AttendanceSummary counts={attendance.counts} percentage={attendance.percentage} />}
+              <div className="max-w-md">
+                <AttendanceCalendar
+                  year={year}
+                  month={month}
+                  statusByDate={statusByDate}
+                  noteByDate={noteByDate}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

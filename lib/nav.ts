@@ -11,7 +11,14 @@ import { ROLES, type Role } from "@/lib/roles";
 
 // The set of icon names our nav can use. Using a union type means a typo here
 // is a compile error, and nav-icons.ts is forced to handle every name.
-export type IconName = "dashboard" | "students" | "staff" | "children" | "settings" | "fees";
+export type IconName =
+  | "dashboard"
+  | "students"
+  | "staff"
+  | "children"
+  | "settings"
+  | "fees"
+  | "attendance";
 
 export type NavItem = {
   label: string;
@@ -25,6 +32,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard/principal", icon: "dashboard" },
     { label: "Students", href: "/principal/students", icon: "students" },
     { label: "Fees", href: "/principal/fees", icon: "fees" },
+    { label: "Attendance", href: "/principal/attendance", icon: "attendance" },
     { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
@@ -37,6 +45,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Dashboard", href: "/dashboard/parent", icon: "dashboard" },
     { label: "Children", href: "/parent/children", icon: "children" },
     { label: "Fees", href: "/parent/fees", icon: "fees" },
+    { label: "Attendance", href: "/parent/attendance", icon: "attendance" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };
