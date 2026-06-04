@@ -8,7 +8,7 @@ import { LogOut } from "lucide-react";
 
 export function MobileHeader({ userName }: { userName: string }) {
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-4 md:hidden">
+    <header className="flex h-14 items-center justify-between border-b bg-card px-4 md:hidden print:hidden">
       <span className="text-base font-bold">SchoolSync</span>
       <button
         onClick={() => signOut({ callbackUrl: "/login" })}

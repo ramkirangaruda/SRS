@@ -13,7 +13,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-card md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-card md:hidden print:hidden">
       <div className="flex h-16 items-stretch justify-around">
         {items.map((item) => {
           const active =

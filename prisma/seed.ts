@@ -1,11 +1,15 @@
-// Seed script — populates the database with demo data so we can build Phase 3
-// against real records. Run with `npm run db:seed`.
+// Seed script — populates the database with demo data so we can build against
+// real records. Run with `npm run db:seed`.
 //
 // It is IDEMPOTENT: we clear the tables we seed (in child→parent order to respect
 // foreign keys) before recreating them, so running it repeatedly is safe.
+//
+// NOTE: all money is stored in paise (integer minor units) via toMinor(). See
+// lib/money.ts for why.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { ROLES } from "../lib/roles";
+import { toMinor } from "../lib/money";
 
 const prisma = new PrismaClient();
 
@@ -26,7 +30,7 @@ async function main() {
     data: {
       name: "Springfield Public School",
       address: "742 Evergreen Terrace, Springfield",
-      phone: "+1-555-0100",
+      phone: "+91-555-0100",
       email: "office@springfield.edu",
       activeAcademicYear: "2025-2026",
     },
@@ -43,8 +47,7 @@ async function main() {
     },
   });
 
-  // 4. USERS — one of each role. All share the demo password "password123",
-  //    stored only as a bcrypt hash (cost factor 10).
+  // 4. USERS — roles share the demo password "password123" (bcrypt, cost 10).
   const passwordHash = await bcrypt.hash("password123", 10);
 
   const principal = await prisma.user.create({
@@ -52,7 +55,7 @@ async function main() {
       name: "Dr. Ada Principal",
       email: "principal@school.edu",
       password: passwordHash,
-      phone: "+1-555-0101",
+      phone: "+91-555-0101",
       role: ROLES.PRINCIPAL,
       schoolId: school.id,
     },
@@ -63,7 +66,7 @@ async function main() {
       name: "Mr. Alan Teacher",
       email: "teacher@school.edu",
       password: passwordHash,
-      phone: "+1-555-0102",
+      phone: "+91-555-0102",
       role: ROLES.TEACHER,
       schoolId: school.id,
     },
@@ -74,29 +77,33 @@ async function main() {
       name: "Sam Parent",
       email: "parent@school.edu",
       password: passwordHash,
-      phone: "+1-555-0103",
+      phone: "+91-555-0103",
       role: ROLES.PARENT,
       schoolId: school.id,
     },
   });
 
-  // 5. CLASSES — grade levels for this school.
-  const class1 = await prisma.class.create({
-    data: { name: "1st", schoolId: school.id },
-  });
-  const class2 = await prisma.class.create({
-    data: { name: "2nd", schoolId: school.id },
-  });
-
-  // 6. SECTIONS — divisions within 1st grade.
-  const sectionA = await prisma.section.create({
-    data: { name: "A", classId: class1.id },
-  });
-  await prisma.section.create({
-    data: { name: "B", classId: class1.id },
+  const parent2 = await prisma.user.create({
+    data: {
+      name: "Pat Guardian",
+      email: "parent2@school.edu",
+      password: passwordHash,
+      phone: "+91-555-0104",
+      role: ROLES.PARENT,
+      schoolId: school.id,
+    },
   });
 
-  // 7. SUBJECTS — offered in 1st grade. createMany is efficient for bulk inserts.
+  // 5. CLASSES.
+  const class1 = await prisma.class.create({ data: { name: "1st", schoolId: school.id } });
+  const class2 = await prisma.class.create({ data: { name: "2nd", schoolId: school.id } });
+
+  // 6. SECTIONS.
+  const sec1A = await prisma.section.create({ data: { name: "A", classId: class1.id } });
+  await prisma.section.create({ data: { name: "B", classId: class1.id } });
+  const sec2A = await prisma.section.create({ data: { name: "A", classId: class2.id } });
+
+  // 7. SUBJECTS (1st grade).
   await prisma.subject.createMany({
     data: [
       { name: "English", classId: class1.id, schoolId: school.id },
@@ -105,68 +112,77 @@ async function main() {
     ],
   });
 
-  // 8. FEE STRUCTURE — what 1st grade owes for the active academic year.
-  const feeStructure = await prisma.feeStructure.create({
+  // 8. FEE STRUCTURES — annual tuition per class for the active year (in paise).
+  const fee1 = await prisma.feeStructure.create({
     data: {
       classId: class1.id,
       academicYearId: academicYear.id,
-      totalAmount: 12000,
+      totalAmount: toMinor(12000), // ₹12,000.00
       description: "Annual tuition for 1st grade (2025-2026)",
       schoolId: school.id,
     },
   });
+  await prisma.feeStructure.create({
+    data: {
+      classId: class2.id,
+      academicYearId: academicYear.id,
+      totalAmount: toMinor(15000), // ₹15,000.00
+      description: "Annual tuition for 2nd grade (2025-2026)",
+      schoolId: school.id,
+    },
+  });
 
-  // 9. STUDENTS — the parent's two children, enrolled in 1st grade, section A.
+  // 9. STUDENTS.
   const mia = await prisma.student.create({
     data: {
-      name: "Mia Parent",
-      admissionNumber: "ADM-2025-001",
-      dateOfBirth: new Date("2019-03-15"),
-      gender: "FEMALE",
-      bloodGroup: "O+",
-      classId: class1.id,
-      sectionId: sectionA.id,
-      parentId: parent.id,
-      schoolId: school.id,
+      name: "Mia Parent", admissionNumber: "ADM-2025-001",
+      dateOfBirth: new Date("2019-03-15"), gender: "FEMALE", bloodGroup: "O+",
+      classId: class1.id, sectionId: sec1A.id, parentId: parent.id, schoolId: school.id,
+    },
+  });
+  const leo = await prisma.student.create({
+    data: {
+      name: "Leo Parent", admissionNumber: "ADM-2025-002",
+      dateOfBirth: new Date("2018-09-02"), gender: "MALE", bloodGroup: "A+",
+      classId: class1.id, sectionId: sec1A.id, parentId: parent.id, schoolId: school.id,
+    },
+  });
+  const ravi = await prisma.student.create({
+    data: {
+      name: "Ravi Guardian", admissionNumber: "ADM-2025-003",
+      dateOfBirth: new Date("2017-07-21"), gender: "MALE", bloodGroup: "B+",
+      classId: class2.id, sectionId: sec2A.id, parentId: parent2.id, schoolId: school.id,
+    },
+  });
+  const anya = await prisma.student.create({
+    data: {
+      name: "Anya Guardian", admissionNumber: "ADM-2025-004",
+      dateOfBirth: new Date("2017-11-05"), gender: "FEMALE", bloodGroup: "AB+",
+      classId: class2.id, sectionId: sec2A.id, parentId: parent2.id, schoolId: school.id,
     },
   });
 
-  await prisma.student.create({
-    data: {
-      name: "Leo Parent",
-      admissionNumber: "ADM-2025-002",
-      dateOfBirth: new Date("2018-09-02"),
-      gender: "MALE",
-      bloodGroup: "A+",
-      classId: class1.id,
-      sectionId: sectionA.id,
-      parentId: parent.id,
-      schoolId: school.id,
-    },
-  });
-
-  // 10. A sample FEE PAYMENT so the fees module has data to show in Phase 3.
-  await prisma.feePayment.create({
-    data: {
-      studentId: mia.id,
-      amount: 6000,
-      date: new Date(),
-      mode: "ONLINE",
-      receiptNumber: "RCPT-2025-0001",
-      notes: "First installment",
-      collectedById: principal.id,
-      schoolId: school.id,
-    },
+  // 10. FEE PAYMENTS — varied so the dashboard shows PAID / PARTIAL / UNPAID.
+  //   Mia: ₹6,000 of ₹12,000   -> PARTIAL
+  //   Leo: nothing             -> UNPAID
+  //   Ravi: ₹15,000 of ₹15,000 -> PAID
+  //   Anya: ₹5,000 of ₹15,000  -> PARTIAL
+  await prisma.feePayment.createMany({
+    data: [
+      { studentId: mia.id, amount: toMinor(6000), date: new Date("2025-06-10"), mode: "ONLINE", receiptNumber: "RCPT-2025-0001", notes: "First installment", collectedById: principal.id, schoolId: school.id },
+      { studentId: ravi.id, amount: toMinor(15000), date: new Date("2025-06-12"), mode: "UPI", receiptNumber: "RCPT-2025-0002", notes: "Full payment", collectedById: principal.id, schoolId: school.id },
+      { studentId: anya.id, amount: toMinor(5000), date: new Date("2025-06-15"), mode: "CASH", receiptNumber: "RCPT-2025-0003", notes: "Partial", collectedById: principal.id, schoolId: school.id },
+    ],
   });
 
   console.log("Seed complete:");
   console.log(`  School    -> ${school.name}`);
   console.log(`  Principal -> ${principal.email} / password123`);
   console.log(`  Teacher   -> ${teacher.email} / password123`);
-  console.log(`  Parent    -> ${parent.email} / password123`);
-  console.log(`  Classes   -> ${class1.name}, ${class2.name}`);
-  console.log(`  Students  -> Mia & Leo (1st grade, section ${sectionA.name})`);
-  console.log(`  Fee       -> $${feeStructure.totalAmount} structure + 1 payment`);
+  console.log(`  Parents   -> ${parent.email}, ${parent2.email} / password123`);
+  console.log(`  Classes   -> 1st (₹12,000), 2nd (₹15,000)`);
+  console.log(`  Students  -> Mia(PARTIAL), Leo(UNPAID), Ravi(PAID), Anya(PARTIAL)`);
+  console.log(`  Fee fee1 id ${fee1.id}, leo ${leo.id}`);
 }
 
 main()

@@ -7,6 +7,7 @@ import {
   Users,
   GraduationCap,
   Settings,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -19,4 +20,5 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   staff: Users,
   children: GraduationCap,
   settings: Settings,
+  fees: Wallet,
 };

@@ -389,7 +389,10 @@ model FeeStructure {
   class          Class        @relation(fields: [classId], references: [id])
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
-  totalAmount    Float
+  // Money is stored in the SMALLEST currency unit (paise) as an integer, never a
+  // float — integers are exact, so totals never drift. ₹12,000.00 is stored as
+  // 1_200_000. We divide by 100 only when displaying. See lib/money.ts.
+  totalAmount    Int
   description    String?
   schoolId       String
   school         School       @relation(fields: [schoolId], references: [id])
@@ -407,9 +410,9 @@ model FeePayment {
   id            String   @id @default(cuid())
   studentId     String
   student       Student  @relation(fields: [studentId], references: [id])
-  amount        Float
+  amount        Int      // paise (smallest unit), integer — see lib/money.ts
   date          DateTime
-  mode          String   // CASH | ONLINE | CHEQUE
+  mode          String   // CASH | ONLINE | CHEQUE | UPI
   receiptNumber String   @unique
   notes         String?
   collectedById String
