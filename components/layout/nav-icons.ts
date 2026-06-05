@@ -13,6 +13,7 @@ import {
   NotebookPen,
   Megaphone,
   Mail,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -31,4 +32,5 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   diary: NotebookPen,
   broadcast: Megaphone,
   messages: Mail,
+  feedback: MessageSquare,
 };

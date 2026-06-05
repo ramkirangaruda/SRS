@@ -1,17 +1,23 @@
-// Aggregates the unread counts shown as nav badges. Both counts are cheap
-// index-backed COUNT queries (see messagesUnreadCount / diaryUnreadCount) — we
-// never load the underlying messages/entries.
+// Aggregates the unread counts shown as nav badges. All are index-backed COUNTs.
 import { messagesUnreadCount } from "@/lib/broadcast";
 import { diaryUnreadCount } from "@/lib/diary";
+import { principalPendingCount, parentUnreadCount } from "@/lib/feedback";
 import { ROLES } from "@/lib/roles";
 
-export type UnreadCounts = { messages: number; diary: number };
+export type UnreadCounts = { messages: number; diary: number; feedback: number };
 
 export async function getUnreadCounts(user: { id: string; role: string; schoolId: string }): Promise<UnreadCounts> {
-  // Diary unread only applies to parents (it's scoped to their children's classes).
-  const [messages, diary] = await Promise.all([
+  const isParent = user.role === ROLES.PARENT;
+  const isPrincipal = user.role === ROLES.PRINCIPAL;
+  const [messages, diary, feedback] = await Promise.all([
     messagesUnreadCount(user.id),
-    user.role === ROLES.PARENT ? diaryUnreadCount(user.id, user.schoolId) : Promise.resolve(0),
+    isParent ? diaryUnreadCount(user.id, user.schoolId) : Promise.resolve(0),
+    // Principal badge = tickets awaiting reply; parent badge = unread replies.
+    isPrincipal
+      ? principalPendingCount(user.schoolId)
+      : isParent
+        ? parentUnreadCount(user.id, user.schoolId)
+        : Promise.resolve(0),
   ]);
-  return { messages, diary };
+  return { messages, diary, feedback };
 }

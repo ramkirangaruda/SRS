@@ -11,7 +11,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import type { UnreadCounts } from "@/lib/notifications";
 
 type Ctx = UnreadCounts & { refresh: () => void };
-const UnreadContext = createContext<Ctx>({ messages: 0, diary: 0, refresh: () => {} });
+const UnreadContext = createContext<Ctx>({ messages: 0, diary: 0, feedback: 0, refresh: () => {} });
 
 const PING_KEY = "schoolsync-unread-ping";
 

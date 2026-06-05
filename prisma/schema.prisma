@@ -103,6 +103,7 @@ model User {
   diaryReads               DiaryRead[]
   feedbacksGiven           Feedback[]          @relation("FeedbackParent")
   feedbacksReplied         Feedback[]          @relation("FeedbackRepliedBy")
+  feedbackMessages         FeedbackMessage[]
   schoolDiaries            SchoolDiary[]
   feePaymentsCollected     FeePayment[]
   homeworksAssigned        Homework[]
@@ -377,19 +378,37 @@ model DiaryRead {
   @@index([userId])
 }
 
-// A two-way parent message + staff reply. Two relations to User => named.
+// A feedback ticket. The conversation lives in FeedbackMessage rows (a thread),
+// not in a single `reply` field — see the walkthrough on why a thread scales and
+// a single reply doesn't. status is a small state machine: PENDING | REPLIED |
+// CLOSED | REOPENED (transitions enforced in lib/feedback-state.ts).
 model Feedback {
-  id           String   @id @default(cuid())
-  parentId     String
-  parent       User     @relation("FeedbackParent", fields: [parentId], references: [id])
-  subject      String
-  message      String
-  reply        String?
-  repliedById  String?
-  repliedBy    User?    @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
-  status       String   @default("PENDING") // PENDING | REPLIED
-  schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id])
+  id              String   @id @default(cuid())
+  // referenceNumber like "FB-2026-0001", unique, generated atomically (Counter).
+  referenceNumber String   @unique
+  parentId        String
+  // The parent link is ALWAYS stored (so the parent can track their own ticket).
+  // For anonymous tickets the API/lib layer never exposes it — see the anonymity
+  // walkthrough for the tradeoff this implies.
+  parent          User     @relation("FeedbackParent", fields: [parentId], references: [id])
+  subject         String
+  message         String   // original body (also the first FeedbackMessage)
+  category        String? // Academic | Fees | Transport | Facilities | Staff | Other
+  isAnonymous     Boolean  @default(false)
+  status          String   @default("PENDING") // PENDING | REPLIED | CLOSED | REOPENED
+  closingNote     String?
+  lastReplyAt     DateTime? // when the principal last replied (drives parent unread)
+  parentSeenAt    DateTime? // when the parent last opened it (drives parent unread)
+
+  // legacy single-reply fields (kept nullable, unused — the thread is authoritative)
+  reply           String?
+  repliedById     String?
+  repliedBy       User?    @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
+
+  schoolId        String
+  school          School   @relation(fields: [schoolId], references: [id])
+
+  messages        FeedbackMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -397,6 +416,34 @@ model Feedback {
   @@index([schoolId])
   @@index([parentId])
   @@index([status])
+  // Composite index: the principal ALWAYS filters "this school, by status" — this
+  // serves it in one indexed seek (sorted by schoolId, then status).
+  @@index([schoolId, status])
+}
+
+// One message in a feedback thread (from a parent or the principal). Storing the
+// whole conversation as rows lets a ticket have any number of back-and-forths.
+model FeedbackMessage {
+  id          String   @id @default(cuid())
+  feedbackId  String
+  feedback    Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id])
+  senderRole  String   // PARENT | PRINCIPAL (drives chat bubble side)
+  message     String
+  attachments String? // JSON array of attachment objects
+  createdAt   DateTime @default(now())
+
+  @@index([feedbackId])
+  @@index([senderId])
+}
+
+// A generic atomic counter, used to mint sequential reference numbers safely
+// under concurrency. One row per (school, year) sequence; see lib/feedback.ts.
+model Counter {
+  key       String   @id // e.g. "feedback:<schoolId>:2026"
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 // A dated diary note for a class (optionally a specific section).

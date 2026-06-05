@@ -6,6 +6,7 @@ import type { UnreadCounts } from "@/lib/notifications";
 export function unreadForHref(href: string, counts: UnreadCounts): number {
   if (href.includes("/messages")) return counts.messages;
   if (href.includes("/diary")) return counts.diary;
+  if (href.includes("/feedback")) return counts.feedback;
   return 0;
 }
 
