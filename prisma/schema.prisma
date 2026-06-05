@@ -136,6 +136,7 @@ model Student {
   bloodGroup      String?
   address         String?
   photo           String?
+  isDaycare       Boolean  @default(false) // enrolled in daycare (shows daycare menu)
 
   classId   String
   class     Class    @relation(fields: [classId], references: [id])
@@ -768,13 +769,25 @@ model AssignmentSubmission {
 // EVENTS & CALENDAR
 // ----------------------------------------------------------------------------
 
-// A calendar event. type: HOLIDAY | EXAM | SPORTS | CULTURAL | OTHER.
+// A calendar event. type: EXAM | SPORTS | CULTURAL | HOLIDAY | PTM | OTHER.
 model Event {
   id          String   @id @default(cuid())
   title       String
   description String?
-  date        DateTime
+  date        DateTime // start day (UTC midnight)
+  endDate     DateTime? // optional end day for multi-day events
   type        String   @default("OTHER")
+  attachments String? // JSON array of attachment objects
+  // Audience: "ALL" or "CLASSES" (with targetClassIds = JSON array of class ids).
+  targetRole     String  @default("ALL")
+  targetClassIds String?
+  // RECURRENCE: we store ONE row + a rule and expand occurrences at read time.
+  // excludedDates is a JSON array of "YYYY-MM-DD" keys removed from the series
+  // (used for "delete just this occurrence"). See lib/events.ts.
+  isRecurring    Boolean @default(false)
+  recurrenceFreq String? // WEEKLY | MONTHLY | YEARLY
+  recurrenceEnd  DateTime?
+  excludedDates  String?
   schoolId    String
   school      School   @relation(fields: [schoolId], references: [id])
 
@@ -786,14 +799,16 @@ model Event {
   @@index([type])
 }
 
-// A holiday entry (kept separate from Event for simple holiday listings).
+// A holiday entry. type: NATIONAL | FESTIVAL | BREAK | OTHER.
 model Holiday {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   date        DateTime
+  endDate     DateTime? // optional end day for multi-day breaks (e.g. Diwali)
   description String?
+  type        String    @default("OTHER")
   schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
+  school      School    @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -802,12 +817,14 @@ model Holiday {
   @@index([date])
 }
 
-// Daily meal plan. menu is JSON; mealType/type are enum-like Strings.
+// One meal plan per (school, day, type). The whole day's menu lives in the `menu`
+// JSON: { breakfast: [...], lunch: [...], snack: [...] }. mealType is unused now
+// (the JSON holds all three) — kept nullable for back-compat.
 model MealCalendar {
   id        String   @id @default(cuid())
   date      DateTime
-  mealType  String   // BREAKFAST | LUNCH | SNACK
-  menu      String   // JSON array of items.
+  mealType  String?  // legacy, unused
+  menu      String   // JSON: { breakfast, lunch, snack }
   type      String   @default("SCHOOL") // SCHOOL | DAYCARE
   schoolId  String
   school    School   @relation(fields: [schoolId], references: [id])
@@ -815,6 +832,8 @@ model MealCalendar {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // One row per day per type per school → enables clean upsert by the planner.
+  @@unique([schoolId, date, type])
   @@index([schoolId])
   @@index([date])
 }

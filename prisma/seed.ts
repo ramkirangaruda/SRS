@@ -15,6 +15,10 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 1. CLEAN — delete children before parents so no foreign key is left dangling.
+  // Calendar data references the school only — clear before deleting the school.
+  await prisma.event.deleteMany();
+  await prisma.holiday.deleteMany();
+  await prisma.mealCalendar.deleteMany();
   // Communication + homework reference class/user, so clear before those.
   await prisma.feedback.deleteMany(); // cascades FeedbackMessage
   await prisma.broadcastMessage.deleteMany(); // cascades BroadcastRecipient
@@ -142,7 +146,7 @@ async function main() {
   const mia = await prisma.student.create({
     data: {
       name: "Mia Parent", admissionNumber: "ADM-2025-001",
-      dateOfBirth: new Date("2019-03-15"), gender: "FEMALE", bloodGroup: "O+",
+      dateOfBirth: new Date("2019-03-15"), gender: "FEMALE", bloodGroup: "O+", isDaycare: true,
       classId: class1.id, sectionId: sec1A.id, parentId: parent.id, schoolId: school.id,
     },
   });
@@ -179,6 +183,35 @@ async function main() {
       { studentId: ravi.id, amount: toMinor(15000), date: new Date("2025-06-12"), mode: "UPI", receiptNumber: "RCPT-2025-0002", notes: "Full payment", collectedById: principal.id, schoolId: school.id },
       { studentId: anya.id, amount: toMinor(5000), date: new Date("2025-06-15"), mode: "CASH", receiptNumber: "RCPT-2025-0003", notes: "Partial", collectedById: principal.id, schoolId: school.id },
     ],
+  });
+
+  // 11. CALENDAR DEMO DATA (events, holidays, meals) — dates relative to today,
+  //     stored at UTC midnight so they read the same in any timezone.
+  const dayUTC = (offset: number) => {
+    const n = new Date();
+    return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + offset));
+  };
+  await prisma.event.createMany({
+    data: [
+      { title: "Annual Sports Day", description: "Track & field events.", date: dayUTC(10), type: "SPORTS", schoolId: school.id },
+      { title: "Mid-term Exams", description: "All classes.", date: dayUTC(20), endDate: dayUTC(24), type: "EXAM", schoolId: school.id },
+      { title: "Parent-Teacher Meeting", description: "Class 1st.", date: dayUTC(5), type: "PTM", schoolId: school.id },
+    ],
+  });
+  await prisma.holiday.createMany({
+    data: [
+      { name: "Diwali Break", description: "Festival of lights.", date: dayUTC(12), endDate: dayUTC(15), type: "FESTIVAL", schoolId: school.id },
+      { name: "Republic Day", date: dayUTC(40), type: "NATIONAL", schoolId: school.id },
+    ],
+  });
+  // A meal plan for today (SCHOOL) so "Today's Menu" widgets show something.
+  await prisma.mealCalendar.create({
+    data: {
+      date: dayUTC(0),
+      type: "SCHOOL",
+      menu: JSON.stringify({ breakfast: ["Idli", "Sambar", "Chutney"], lunch: ["Rice", "Dal", "Sabzi"], snack: ["Fruit", "Biscuit"] }),
+      schoolId: school.id,
+    },
   });
 
   console.log("Seed complete:");
