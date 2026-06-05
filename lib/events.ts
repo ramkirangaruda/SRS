@@ -100,12 +100,13 @@ export async function listUpcoming(schoolId: string, days = 30, opts?: { classId
   const startKey = dayKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
   const endKey = addDaysKey(startKey, days);
   let rows = await prisma.event.findMany({ where: { schoolId, date: { lte: dateUTCFromKey(endKey) } } });
-  rows = filterByAudience(rows as EventRow[], opts?.classIds);
+  rows = filterByAudience(rows, opts?.classIds);
   return rows.flatMap((r) => expand(r as EventRow, startKey, endKey)).sort((a, b) => a.occurrenceKey.localeCompare(b.occurrenceKey));
 }
 
 // Keep events targeted to ALL, or to CLASSES that intersect the given classIds.
-function filterByAudience(rows: (EventRow & { targetClassIds?: string | null })[], classIds?: string[]) {
+// Generic so it returns the same row type it received (no field widening).
+function filterByAudience<T extends { targetRole: string; targetClassIds: string | null }>(rows: T[], classIds?: string[]): T[] {
   if (!classIds) return rows;
   const mine = new Set(classIds);
   return rows.filter((r) => {
@@ -121,7 +122,7 @@ export async function listParentEventsForMonth(parentId: string, schoolId: strin
   const classIds = Array.from(new Set(children.map((c) => c.classId)));
   const { startKey, endKey } = monthRangeKeys(year, month);
   let rows = await prisma.event.findMany({ where: { schoolId, date: { lte: dateUTCFromKey(endKey) }, ...(type ? { type } : {}) } });
-  rows = filterByAudience(rows as (EventRow & { targetClassIds: string | null })[], classIds);
+  rows = filterByAudience(rows, classIds);
   return rows.flatMap((r) => expand(r as EventRow, startKey, endKey)).sort((a, b) => a.occurrenceKey.localeCompare(b.occurrenceKey));
 }
 

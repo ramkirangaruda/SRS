@@ -14,6 +14,9 @@ import {
   Megaphone,
   Mail,
   MessageSquare,
+  CalendarRange,
+  Palmtree,
+  UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -33,4 +36,7 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   broadcast: Megaphone,
   messages: Mail,
   feedback: MessageSquare,
+  events: CalendarRange,
+  holidays: Palmtree,
+  meals: UtensilsCrossed,
 };

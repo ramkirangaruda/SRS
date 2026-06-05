@@ -23,7 +23,10 @@ export type IconName =
   | "diary"
   | "broadcast"
   | "messages"
-  | "feedback";
+  | "feedback"
+  | "events"
+  | "holidays"
+  | "meals";
 
 export type NavItem = {
   label: string;
@@ -42,6 +45,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Diary", href: "/principal/diary", icon: "diary" },
     { label: "Broadcast", href: "/principal/broadcast", icon: "broadcast" },
     { label: "Feedback", href: "/principal/feedback", icon: "feedback" },
+    { label: "Events", href: "/principal/events", icon: "events" },
+    { label: "Holidays", href: "/principal/holidays", icon: "holidays" },
+    { label: "Meals", href: "/principal/meals", icon: "meals" },
     { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
@@ -59,6 +65,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Diary", href: "/parent/diary", icon: "diary" },
     { label: "Messages", href: "/parent/messages", icon: "messages" },
     { label: "Feedback", href: "/parent/feedback", icon: "feedback" },
+    { label: "Events", href: "/parent/events", icon: "events" },
+    { label: "Holidays", href: "/parent/holidays", icon: "holidays" },
+    { label: "Meals", href: "/parent/meals", icon: "meals" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };
