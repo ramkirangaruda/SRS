@@ -17,6 +17,9 @@ import {
   CalendarRange,
   Palmtree,
   UtensilsCrossed,
+  Images,
+  Film,
+  Library,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -39,4 +42,7 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   events: CalendarRange,
   holidays: Palmtree,
   meals: UtensilsCrossed,
+  gallery: Images,
+  videos: Film,
+  elearning: Library,
 };

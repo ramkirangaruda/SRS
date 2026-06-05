@@ -15,6 +15,14 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 1. CLEAN — delete children before parents so no foreign key is left dangling.
+  // Media + e-learning reference class/user — clear before those.
+  await prisma.assignmentSubmission.deleteMany();
+  await prisma.assignment.deleteMany();
+  await prisma.tutorial.deleteMany();
+  await prisma.eLearningCategory.deleteMany();
+  await prisma.video.deleteMany();
+  await prisma.galleryImage.deleteMany(); // also cascades from album
+  await prisma.galleryAlbum.deleteMany();
   // Calendar data references the school only — clear before deleting the school.
   await prisma.event.deleteMany();
   await prisma.holiday.deleteMany();

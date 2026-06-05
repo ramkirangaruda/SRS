@@ -13,7 +13,9 @@ export type { StoredFile };
 
 // Only these subfolders may be written to — prevents a crafted "folder" value
 // from escaping into the filesystem (path traversal).
-const ALLOWED_FOLDERS = new Set(["uploads", "homework-attachments"]);
+const ALLOWED_FOLDERS = new Set(["uploads", "homework-attachments", "videos", "submissions"]);
+
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB for direct video uploads
 
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 
@@ -28,9 +30,15 @@ export async function saveUploadedFile(file: File, folder: string): Promise<Stor
   if (!ALLOWED_FOLDERS.has(folder)) {
     throw new Error("Invalid upload folder");
   }
-  // SERVER-SIDE validation — the real gate, independent of the client checks.
-  const err = validateFileMeta({ name: file.name, size: file.size, type: file.type });
-  if (err) throw new Error(err);
+  // Video uploads have their own rules (video mime, 100 MB); everything else
+  // uses the standard image/doc validation.
+  if (folder === "videos") {
+    if (!file.type.startsWith("video/")) throw new Error("Only video files are allowed");
+    if (file.size > MAX_VIDEO_SIZE) throw new Error("Video exceeds 100 MB");
+  } else {
+    const err = validateFileMeta({ name: file.name, size: file.size, type: file.type });
+    if (err) throw new Error(err);
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer());
 

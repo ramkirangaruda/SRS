@@ -109,6 +109,7 @@ model User {
   homeworksAssigned        Homework[]
   tutorialsUploaded        Tutorial[]
   assignmentsUploaded      Assignment[]
+  videosUploaded           Video[]
   meetingGroupsCreated     MeetingGroup[]
   meetingGroupMemberships  MeetingGroupMember[]
   meetingMessages          MeetingMessage[]
@@ -202,6 +203,7 @@ model Section {
   homeworks     Homework[]
   timetables    Timetable[]
   schoolDiaries SchoolDiary[]
+  assignments   Assignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -681,6 +683,9 @@ model ProgressReport {
 model ELearningCategory {
   id          String       @id @default(cuid())
   name        String
+  description String?
+  icon        String? // an icon key (Science/Math/...)
+  color       String? // a hex/color token for the card
   schoolId    String
   school      School       @relation(fields: [schoolId], references: [id])
   tutorials   Tutorial[]
@@ -692,12 +697,15 @@ model ELearningCategory {
   @@index([schoolId])
 }
 
-// A learning video/resource.
+// A learning resource. type: VIDEO | DOCUMENT | LINK.
 model Tutorial {
   id           String            @id @default(cuid())
   title        String
   description  String?
+  type         String            @default("LINK")
   videoUrl     String?
+  embedUrl     String?
+  linkUrl      String?
   fileUrl      String?
   categoryId   String?
   category     ELearningCategory? @relation(fields: [categoryId], references: [id])
@@ -724,10 +732,15 @@ model Assignment {
   description  String?
   dueDate      DateTime
   fileUrl      String?
+  attachments  String? // JSON array of reference files
+  totalMarks   Int?
+  status       String            @default("OPEN") // OPEN | CLOSED
   categoryId   String?
   category     ELearningCategory? @relation(fields: [categoryId], references: [id])
   classId      String?
   class        Class?            @relation(fields: [classId], references: [id])
+  sectionId    String?
+  section      Section?          @relation(fields: [sectionId], references: [id])
   uploadedById String
   uploadedBy   User              @relation(fields: [uploadedById], references: [id])
   schoolId     String
@@ -743,6 +756,7 @@ model Assignment {
   @@index([classId])
   @@index([uploadedById])
   @@index([dueDate])
+  @@index([status])
 }
 
 // A student's submission. One per (assignment, student); deleting the parent
@@ -932,12 +946,13 @@ model DaycareHistory {
 
 // A photo album. Images cascade-delete with the album.
 model GalleryAlbum {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String?
-  coverImage  String?
+  coverImage  String? // full-size URL of the chosen cover
+  date        DateTime? // event date the album is about
   schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
+  school      School    @relation(fields: [schoolId], references: [id])
 
   images GalleryImage[]
 
@@ -951,7 +966,8 @@ model GalleryImage {
   id       String       @id @default(cuid())
   albumId  String
   album    GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  imageUrl String
+  imageUrl String // full-size (max 1920px) — used by the lightbox
+  thumbUrl String? // 300px thumbnail — used by the grid (saves bandwidth)
   caption  String?
 
   createdAt DateTime @default(now())
@@ -960,20 +976,31 @@ model GalleryImage {
   @@index([albumId])
 }
 
-// A standalone video (not tied to an album).
+// A video: either an external link (YouTube/Vimeo) or a direct upload.
 model Video {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  videoUrl     String
-  thumbnailUrl String?
-  schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id])
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  source         String   @default("YOUTUBE") // YOUTUBE | VIMEO | UPLOAD
+  videoUrl       String // external URL or stored file URL
+  embedUrl       String? // iframe src for external videos
+  thumbnailUrl   String?
+  duration       String?
+  category       String?
+  viewCount      Int      @default(0)
+  // Audience: ALL, or CLASSES with targetClassIds = JSON array of class ids.
+  targetRole     String   @default("ALL")
+  targetClassIds String?
+  uploadedById   String
+  uploadedBy     User     @relation(fields: [uploadedById], references: [id])
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([schoolId])
+  @@index([uploadedById])
 }
 
 // ----------------------------------------------------------------------------
