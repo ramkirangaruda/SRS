@@ -4,6 +4,7 @@
   "private": true,
   "comment": "Scripts are the commands you'll run while developing. 'dev' runs the hot-reloading dev server; 'db:push' syncs the Prisma schema to SQLite; 'db:seed' loads our demo users.",
   "scripts": {
+    "predev": "node scripts/free-port.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
