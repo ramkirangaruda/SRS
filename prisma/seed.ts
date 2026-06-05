@@ -15,7 +15,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 1. CLEAN — delete children before parents so no foreign key is left dangling.
-  // Homework references class/subject/user, so clear it before those.
+  // Communication + homework reference class/user, so clear before those.
+  await prisma.broadcastMessage.deleteMany(); // cascades BroadcastRecipient
+  await prisma.schoolDiary.deleteMany(); // cascades DiaryRead
   await prisma.homework.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.feePayment.deleteMany();

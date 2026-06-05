@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/nav";
 import { NAV_ICONS } from "@/components/layout/nav-icons";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { useUnread } from "@/components/unread-provider";
+import { unreadForHref, NavBadge } from "@/components/layout/nav-badge";
 
 type SidebarProps = {
   items: NavItem[];
@@ -20,6 +22,7 @@ type SidebarProps = {
 
 export function Sidebar({ items, userName, roleLabel }: SidebarProps) {
   const pathname = usePathname();
+  const unread = useUnread();
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r bg-card md:flex print:hidden">
@@ -52,6 +55,7 @@ export function Sidebar({ items, userName, roleLabel }: SidebarProps) {
             >
               <Icon className="h-4 w-4" />
               {item.label}
+              <NavBadge count={unreadForHref(item.href, unread)} />
             </Link>
           );
         })}

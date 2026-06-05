@@ -99,6 +99,8 @@ model User {
   // User more than once (Feedback) we MUST name the relations to disambiguate.
   attendancesMarked        Attendance[]
   broadcastMessages        BroadcastMessage[]
+  broadcastReceipts        BroadcastRecipient[]
+  diaryReads               DiaryRead[]
   feedbacksGiven           Feedback[]          @relation("FeedbackParent")
   feedbacksReplied         Feedback[]          @relation("FeedbackRepliedBy")
   schoolDiaries            SchoolDiary[]
@@ -194,9 +196,10 @@ model Section {
   classId String
   class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
-  students   Student[]
-  homeworks  Homework[]
-  timetables Timetable[]
+  students      Student[]
+  homeworks     Homework[]
+  timetables    Timetable[]
+  schoolDiaries SchoolDiary[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -313,19 +316,26 @@ model Attendance {
 // COMMUNICATION
 // ----------------------------------------------------------------------------
 
-// A one-way announcement. targetClassId is optional (null = whole school).
+// A targeted announcement. The authoritative recipient list lives in
+// BroadcastRecipient (one row per targeted user) — that's what powers per-user
+// read tracking and the inbox. targetRole/targetLabel are for display/filtering.
 model BroadcastMessage {
   id            String   @id @default(cuid())
   title         String
   message       String
   sentById      String
   sentBy        User     @relation(fields: [sentById], references: [id])
-  targetRole    String   @default("ALL") // ALL | PARENTS | TEACHERS
+  targetRole    String   @default("ALL") // ALL | PARENTS | TEACHERS | CLASSES
   targetClassId String?
   targetClass   Class?   @relation(fields: [targetClassId], references: [id])
-  attachments   String? // JSON array of file URLs.
+  targetLabel   String? // human label, e.g. "Parents of Class 5 - A"
+  urgent        Boolean  @default(false)
+  attachments   String? // JSON array of attachment objects
+  deletedAt     DateTime? // soft delete: non-null = deleted (kept for the record)
   schoolId      String
   school        School   @relation(fields: [schoolId], references: [id])
+
+  recipients    BroadcastRecipient[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -333,6 +343,38 @@ model BroadcastMessage {
   @@index([schoolId])
   @@index([sentById])
   @@index([targetClassId])
+  @@index([deletedAt])
+}
+
+// One row per (broadcast, targeted user). readAt null = unread. This separate
+// table (vs. an array of reader-ids on the message) is what makes "unread count"
+// and "142/200 read" efficient, indexable queries — see the walkthrough.
+model BroadcastRecipient {
+  id          String           @id @default(cuid())
+  broadcastId String
+  broadcast   BroadcastMessage @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  readAt      DateTime? // null until the user opens the message
+  createdAt   DateTime         @default(now())
+
+  // One recipient row per user per broadcast; fast unread lookups by user.
+  @@unique([broadcastId, userId])
+  @@index([userId, readAt])
+  @@index([broadcastId])
+}
+
+// Per-user read marker for diary entries (created when a user opens an entry).
+model DiaryRead {
+  id            String      @id @default(cuid())
+  schoolDiaryId String
+  schoolDiary   SchoolDiary @relation(fields: [schoolDiaryId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  readAt        DateTime    @default(now())
+
+  @@unique([schoolDiaryId, userId])
+  @@index([userId])
 }
 
 // A two-way parent message + staff reply. Two relations to User => named.
@@ -357,25 +399,32 @@ model Feedback {
   @@index([status])
 }
 
-// A dated diary note for a class.
+// A dated diary note for a class (optionally a specific section).
 model SchoolDiary {
   id           String   @id @default(cuid())
   title        String
   content      String
   date         DateTime
+  attachments  String? // JSON array of attachment objects
   classId      String
   class        Class    @relation(fields: [classId], references: [id])
+  sectionId    String?  // null = whole class
+  section      Section? @relation(fields: [sectionId], references: [id])
   postedById   String
   postedBy     User     @relation(fields: [postedById], references: [id])
   schoolId     String
   school       School   @relation(fields: [schoolId], references: [id])
+
+  reads        DiaryRead[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([schoolId])
   @@index([classId])
+  @@index([sectionId])
   @@index([date])
+  @@index([createdAt])
 }
 
 // ----------------------------------------------------------------------------

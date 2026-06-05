@@ -8,9 +8,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/nav";
 import { NAV_ICONS } from "@/components/layout/nav-icons";
+import { useUnread } from "@/components/unread-provider";
+import { unreadForHref } from "@/components/layout/nav-badge";
 
 export function BottomNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  const unread = useUnread();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-card md:hidden print:hidden">
@@ -20,6 +23,7 @@ export function BottomNav({ items }: { items: NavItem[] }) {
             pathname === item.href ||
             (item.href.split("/").length > 3 && pathname.startsWith(item.href));
           const Icon = NAV_ICONS[item.icon];
+          const badge = unreadForHref(item.href, unread);
           return (
             <Link
               key={item.href}
@@ -29,7 +33,14 @@ export function BottomNav({ items }: { items: NavItem[] }) {
                 active ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <Icon className="h-5 w-5" />
+              <span className="relative">
+                <Icon className="h-5 w-5" />
+                {badge > 0 && (
+                  <span className="absolute -right-2 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                )}
+              </span>
               <span className="leading-none">{item.label}</span>
             </Link>
           );

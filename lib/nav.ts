@@ -19,7 +19,10 @@ export type IconName =
   | "settings"
   | "fees"
   | "attendance"
-  | "homework";
+  | "homework"
+  | "diary"
+  | "broadcast"
+  | "messages";
 
 export type NavItem = {
   label: string;
@@ -35,6 +38,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Fees", href: "/principal/fees", icon: "fees" },
     { label: "Attendance", href: "/principal/attendance", icon: "attendance" },
     { label: "Homework", href: "/principal/homework", icon: "homework" },
+    { label: "Diary", href: "/principal/diary", icon: "diary" },
+    { label: "Broadcast", href: "/principal/broadcast", icon: "broadcast" },
     { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
@@ -49,6 +54,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Fees", href: "/parent/fees", icon: "fees" },
     { label: "Attendance", href: "/parent/attendance", icon: "attendance" },
     { label: "Homework", href: "/parent/homework", icon: "homework" },
+    { label: "Diary", href: "/parent/diary", icon: "diary" },
+    { label: "Messages", href: "/parent/messages", icon: "messages" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };

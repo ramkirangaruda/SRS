@@ -10,6 +10,9 @@ import {
   Wallet,
   CalendarCheck,
   BookOpen,
+  NotebookPen,
+  Megaphone,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -25,4 +28,7 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   fees: Wallet,
   attendance: CalendarCheck,
   homework: BookOpen,
+  diary: NotebookPen,
+  broadcast: Megaphone,
+  messages: Mail,
 };
