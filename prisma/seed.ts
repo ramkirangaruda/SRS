@@ -15,6 +15,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 1. CLEAN — delete children before parents so no foreign key is left dangling.
+  // Reports reference student/subject — clear before those.
+  await prisma.testReport.deleteMany();
+  await prisma.progressReport.deleteMany();
   // Media + e-learning reference class/user — clear before those.
   await prisma.assignmentSubmission.deleteMany();
   await prisma.assignment.deleteMany();
@@ -51,6 +54,7 @@ async function main() {
       phone: "+91-555-0100",
       email: "office@springfield.edu",
       activeAcademicYear: "2025-2026",
+      showRankToParents: true,
     },
   });
 
@@ -220,6 +224,28 @@ async function main() {
       menu: JSON.stringify({ breakfast: ["Idli", "Sambar", "Chutney"], lunch: ["Rice", "Dal", "Sabzi"], snack: ["Fruit", "Biscuit"] }),
       schoolId: school.id,
     },
+  });
+
+  // 12. TEST SCORES demo — Unit Test 1 & 2 for class 1st students, so trends and
+  //     report cards have data. percentage + grade are computed at entry.
+  const class1Subjects = await prisma.subject.findMany({ where: { classId: class1.id }, select: { id: true, name: true } });
+  const gradeFor = (pct: number) => (pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B+" : pct >= 60 ? "B" : pct >= 50 ? "C" : pct >= 40 ? "D" : "F");
+  const tr: { studentId: string; subjectId: string; classId: string; sectionId: string; testName: string; date: Date; total: number; obtained: number }[] = [];
+  const scoreTable: Record<string, Record<string, [number, number]>> = {
+    // student -> subject -> [UT1, UT2] obtained (out of 100)
+    [mia.id]: { English: [82, 88], Mathematics: [75, 80], Science: [90, 92] },
+    [leo.id]: { English: [60, 55], Mathematics: [48, 62], Science: [70, 68] },
+  };
+  for (const [sid, subjMarks] of Object.entries(scoreTable)) {
+    for (const subj of class1Subjects) {
+      const marks = subjMarks[subj.name];
+      if (!marks) continue;
+      tr.push({ studentId: sid, subjectId: subj.id, classId: class1.id, sectionId: sec1A.id, testName: "Unit Test 1", date: new Date("2025-07-15"), total: 100, obtained: marks[0] });
+      tr.push({ studentId: sid, subjectId: subj.id, classId: class1.id, sectionId: sec1A.id, testName: "Unit Test 2", date: new Date("2025-09-15"), total: 100, obtained: marks[1] });
+    }
+  }
+  await prisma.testReport.createMany({
+    data: tr.map((t) => ({ studentId: t.studentId, subjectId: t.subjectId, classId: t.classId, sectionId: t.sectionId, testName: t.testName, date: t.date, totalMarks: t.total, obtainedMarks: t.obtained, percentage: (t.obtained / t.total) * 100, grade: gradeFor((t.obtained / t.total) * 100), schoolId: school.id })),
   });
 
   console.log("Seed complete:");

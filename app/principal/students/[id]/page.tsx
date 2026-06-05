@@ -10,11 +10,16 @@ import { authOptions } from "@/lib/auth";
 import { getStudentById, listClassesWithSections } from "@/lib/students";
 import { getStudentAttendance } from "@/lib/attendance";
 import { getHomeworkForClass } from "@/lib/homework";
+import { getStudentScores, getStudentChart } from "@/lib/test-reports";
+import { prisma } from "@/lib/prisma";
 import { formatDate, getInitials } from "@/lib/format";
+import { gradeColorClass } from "@/lib/grades";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { AttendanceSummary } from "@/components/attendance/attendance-summary";
 import { AttendanceCalendar } from "@/components/attendance/attendance-calendar";
+import { ScoreTrendChart } from "@/components/test-reports/score-trend-chart";
 import { DueBadge } from "@/components/homework/due-badge";
 import type { AttendanceStatus } from "@/lib/attendance-status";
 import { StudentDetailActions } from "@/components/students/student-detail-actions";
@@ -47,6 +52,13 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
 
   // Recent active homework for this student's class/section.
   const homework = await getHomeworkForClass(student.classId, student.sectionId, schoolId, 5);
+
+  // Test scores + chart, and this student's progress reports, for the new tabs.
+  const [scores, chart, reports] = await Promise.all([
+    getStudentScores(params.id, schoolId),
+    getStudentChart(params.id, schoolId),
+    prisma.progressReport.findMany({ where: { studentId: params.id, schoolId }, select: { id: true, term: true, overallGrade: true, rank: true, status: true }, orderBy: { term: "asc" } }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -87,6 +99,8 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="homework">Homework</TabsTrigger>
+          <TabsTrigger value="scores">Test Scores</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -166,6 +180,47 @@ export default async function StudentDetailPage({ params }: { params: { id: stri
                         <span className="ml-2 text-xs text-muted-foreground">{hw.subjectName ?? "General"}</span>
                       </Link>
                       <DueBadge dueDate={hw.dueDate} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scores">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Score Trend</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <ScoreTrendChart series={chart} />
+              {scores.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No test scores recorded.</p>
+              ) : (
+                <ul className="divide-y text-sm">
+                  {scores.map((s) => (
+                    <li key={s.id} className="flex items-center justify-between py-1.5">
+                      <span>{s.subjectName} · {s.testName} <span className="text-xs text-muted-foreground">{formatDate(s.date)}</span></span>
+                      <span className="flex items-center gap-2">{s.obtainedMarks}/{s.totalMarks}<span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${gradeColorClass(s.grade)}`}>{s.grade}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Progress Reports</CardTitle></CardHeader>
+            <CardContent>
+              {reports.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No reports generated yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {reports.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between gap-2 border-b pb-2 text-sm last:border-0">
+                      <span>{r.term} · Grade {r.overallGrade ?? "—"}{r.rank ? ` · Rank ${r.rank}` : ""} <Badge variant={r.status === "PUBLISHED" ? "success" : "secondary"}>{r.status}</Badge></span>
+                      <Link href={`/print/progress-report/${r.id}`} target="_blank" className="text-blue-600 hover:underline">View</Link>
                     </li>
                   ))}
                 </ul>

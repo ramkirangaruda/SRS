@@ -65,5 +65,7 @@ export default withAuth(
 // /dashboard/* — the login page and public assets stay open. (Note: list the
 // paths as static patterns; Next compiles this at build time.)
 export const config = {
-  matcher: ["/dashboard/:path*", "/principal/:path*", "/parent/:path*"],
+  // /print/* (report cards) just needs a logged-in user; the page itself does the
+  // role/ownership check, so it isn't under /principal or /parent.
+  matcher: ["/dashboard/:path*", "/principal/:path*", "/parent/:path*", "/print/:path*"],
 };

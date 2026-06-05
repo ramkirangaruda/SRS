@@ -37,6 +37,7 @@ model School {
   phone              String?
   email              String?
   activeAcademicYear String? // Convenience label, e.g. "2025-2026".
+  showRankToParents  Boolean  @default(false) // whether parents see class rank
 
   // Back-relations: one School has many of nearly everything. These let us write
   // queries like `prisma.school.findFirst({ include: { students: true } })`.
@@ -636,10 +637,16 @@ model TestReport {
   student       Student  @relation(fields: [studentId], references: [id])
   subjectId     String
   subject       Subject  @relation(fields: [subjectId], references: [id])
+  // classId/sectionId are denormalized from the student so we can filter a whole
+  // test (class+section+subject) without joining through Student every time.
+  classId       String?
+  sectionId     String?
   testName      String
   totalMarks    Float
   obtainedMarks Float
-  grade         String?
+  percentage    Float? // stored (computed at entry) for fast sorting/averaging
+  grade         String? // stored (computed at entry)
+  remarks       String?
   date          DateTime
   schoolId      String
   school        School   @relation(fields: [schoolId], references: [id])
@@ -647,13 +654,21 @@ model TestReport {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // One row per student per (subject, testName, date) → enables clean upsert.
+  @@unique([studentId, subjectId, testName, date])
   @@index([schoolId])
   @@index([studentId])
   @@index([subjectId])
   @@index([date])
+  // Composite index for the report-card aggregation (studentId, subjectId, date).
+  @@index([studentId, subjectId, date])
+  @@index([classId, sectionId])
 }
 
 // A term report card for a student. term: TERM1 | TERM2 | TERM3.
+// The computed report (subject rows, attendance, rank) is FROZEN into `data` at
+// generation time — a point-in-time document. status separates DRAFT (internal)
+// from PUBLISHED (visible to parents). generatedAt drives staleness detection.
 model ProgressReport {
   id             String       @id @default(cuid())
   studentId      String
@@ -661,18 +676,31 @@ model ProgressReport {
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
   term           String
+  classId        String?
+  sectionId      String?
   remarks        String?
+  coCurricular   String?
+  conduct        String? // A | B | C | D
   overallGrade   String?
+  overallPercent Float?
+  attendancePercent Float?
+  rank           Int?
+  data           String? // JSON snapshot: subject rows + attendance for rendering
+  status         String       @default("DRAFT") // DRAFT | PUBLISHED
   reportFileUrl  String?
+  generatedAt    DateTime? // when the snapshot was computed (staleness baseline)
+  publishedAt    DateTime?
   schoolId       String
   school         School       @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([studentId, academicYearId, term])
   @@index([schoolId])
   @@index([studentId])
   @@index([academicYearId])
+  @@index([classId, term, status])
 }
 
 // ----------------------------------------------------------------------------

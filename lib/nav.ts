@@ -29,7 +29,9 @@ export type IconName =
   | "meals"
   | "gallery"
   | "videos"
-  | "elearning";
+  | "elearning"
+  | "testreports"
+  | "reports";
 
 export type NavItem = {
   label: string;
@@ -54,6 +56,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Gallery", href: "/principal/gallery", icon: "gallery" },
     { label: "Videos", href: "/principal/videos", icon: "videos" },
     { label: "E-Learning", href: "/principal/elearning", icon: "elearning" },
+    { label: "Test Reports", href: "/principal/test-reports", icon: "testreports" },
+    { label: "Progress Reports", href: "/principal/progress-reports", icon: "reports" },
     { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
@@ -77,6 +81,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Gallery", href: "/parent/gallery", icon: "gallery" },
     { label: "Videos", href: "/parent/videos", icon: "videos" },
     { label: "Learning", href: "/parent/elearning", icon: "elearning" },
+    { label: "Test Reports", href: "/parent/test-reports", icon: "testreports" },
+    { label: "Report Cards", href: "/parent/progress-reports", icon: "reports" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };

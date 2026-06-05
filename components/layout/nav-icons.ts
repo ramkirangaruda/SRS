@@ -20,6 +20,8 @@ import {
   Images,
   Film,
   Library,
+  FileBarChart2,
+  Award,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -45,4 +47,6 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   gallery: Images,
   videos: Film,
   elearning: Library,
+  testreports: FileBarChart2,
+  reports: Award,
 };
