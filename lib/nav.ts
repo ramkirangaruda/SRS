@@ -37,7 +37,10 @@ export type IconName =
   | "meetingroom"
   | "planners"
   | "daycare"
-  | "resources";
+  | "resources"
+  | "visitors"
+  | "enquiry"
+  | "admissions";
 
 export type NavItem = {
   label: string;
@@ -69,6 +72,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Meeting Room", href: "/principal/meeting-room", icon: "meetingroom" },
     { label: "Planners", href: "/principal/planners", icon: "planners" },
     { label: "Daycare", href: "/principal/daycare", icon: "daycare" },
+    { label: "Enquiries", href: "/principal/enquiry", icon: "enquiry" },
+    { label: "Admissions", href: "/principal/admissions", icon: "admissions" },
+    { label: "Visitors", href: "/principal/visitors", icon: "visitors" },
     { label: "Staff", href: "/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],

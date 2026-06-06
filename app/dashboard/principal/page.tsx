@@ -2,12 +2,14 @@
 // can query the database directly (no API call needed) and render with real data.
 import { getServerSession } from "next-auth";
 import Link from "next/link";
-import { AlertTriangle, Baby } from "lucide-react";
+import { AlertTriangle, Baby, CalendarClock, UserPlus, DoorOpen, TrendingUp } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listEventsForMonth } from "@/lib/events";
 import { unplannedDaysThisWeek } from "@/lib/meals";
 import { daycareToday } from "@/lib/daycare";
+import { followUpsToday } from "@/lib/enquiry";
+import { todayCounts as visitorTodayCounts } from "@/lib/visitors";
 import { todayKey, formatKey } from "@/lib/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -16,14 +18,23 @@ export default async function PrincipalDashboard() {
   const schoolId = session!.user.schoolId;
   const now = new Date();
 
-  const [studentCount, parentCount, monthEvents, unplanned, daycare] = await Promise.all([
+  // Start-of-month for the "this month" counts.
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const [studentCount, parentCount, monthEvents, unplanned, daycare, followUps, pendingAdmissions, visitorCounts, monthEnquiries, monthAdmissions, monthConverted] = await Promise.all([
     prisma.student.count({ where: { schoolId } }),
     prisma.user.count({ where: { schoolId, role: "PARENT" } }),
     listEventsForMonth(schoolId, now.getUTCFullYear(), now.getUTCMonth() + 1),
     unplannedDaysThisWeek(schoolId),
     daycareToday(schoolId),
+    followUpsToday(schoolId),
+    prisma.admissionQuery.count({ where: { schoolId, status: "PENDING" } }),
+    visitorTodayCounts(schoolId),
+    prisma.enquiry.count({ where: { schoolId, createdAt: { gte: monthStart } } }),
+    prisma.student.count({ where: { schoolId, createdAt: { gte: monthStart } } }),
+    prisma.enquiry.count({ where: { schoolId, status: "CONVERTED", createdAt: { gte: monthStart } } }),
   ]);
   const todayEvents = monthEvents.filter((e) => e.occurrenceKey === todayKey());
+  const conversionRate = monthEnquiries > 0 ? Math.round((monthConverted / monthEnquiries) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -48,6 +59,47 @@ export default async function PrincipalDashboard() {
               <p className="text-sm font-semibold">{unplanned.length} day(s) this week have no school meal planned</p>
               <p className="text-xs">{unplanned.map((k) => formatKey(k)).join(" · ")}</p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Admissions / enquiry / visitor widgets */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div><p className="flex items-center gap-1 text-xs text-muted-foreground"><CalendarClock className="h-3 w-3" /> Today&apos;s Follow-ups</p><p className="text-2xl font-bold">{followUps.length}</p></div>
+            <Link href="/principal/enquiry" className="text-xs text-blue-600 hover:underline">View</Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div><p className="flex items-center gap-1 text-xs text-muted-foreground"><UserPlus className="h-3 w-3" /> Pending Admissions</p><p className="text-2xl font-bold">{pendingAdmissions}</p></div>
+            <Link href="/principal/admissions" className="text-xs text-blue-600 hover:underline">Review</Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingUp className="h-3 w-3" /> This Month</p>
+            <p className="text-sm"><strong>{monthEnquiries}</strong> enquiries · <strong>{monthAdmissions}</strong> admissions</p>
+            <p className="text-xs text-muted-foreground">{conversionRate}% conversion</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div><p className="flex items-center gap-1 text-xs text-muted-foreground"><DoorOpen className="h-3 w-3" /> Visitors Today</p><p className="text-2xl font-bold">{visitorCounts.total}</p><p className="text-xs text-orange-600">{visitorCounts.onPremises} on premises</p></div>
+            <Link href="/principal/visitors" className="text-xs text-blue-600 hover:underline">Log</Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Today's follow-up reminders */}
+      {followUps.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4 text-blue-900">
+            <p className="mb-1 text-sm font-semibold">Follow-ups due today</p>
+            <ul className="space-y-0.5 text-xs">
+              {followUps.map((f) => <li key={f.id}><Link href={`/principal/enquiry/${f.id}`} className="hover:underline">{f.parentName}{f.childName ? ` (${f.childName})` : ""} · {f.phone}</Link></li>)}
+            </ul>
           </CardContent>
         </Card>
       )}

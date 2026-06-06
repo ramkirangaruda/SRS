@@ -48,6 +48,16 @@ async function main() {
   await prisma.meetingGroup.deleteMany();
   await prisma.planner.deleteMany();
   await prisma.resource.deleteMany();
+  // Phase 14: visitors, enquiry, admissions. Enquiry<->AdmissionQuery reference
+  // each other (circular FK), so null the cross-links before deleting either.
+  await prisma.enquiry.updateMany({ data: { convertedToAdmissionId: null } });
+  await prisma.admissionQuery.updateMany({ data: { enquiryId: null } });
+  await prisma.enquiryActivity.deleteMany();
+  await prisma.admissionActivity.deleteMany();
+  await prisma.enquiry.deleteMany();
+  await prisma.admissionQuery.deleteMany();
+  await prisma.enquiryCategory.deleteMany();
+  await prisma.visitorRegister.deleteMany();
   // Phase 12: timetable + virtual classroom + staff reference class/user/year.
   await prisma.timetableEntry.deleteMany();
   await prisma.periodTemplate.deleteMany();
@@ -388,6 +398,55 @@ async function main() {
       activities: { create: [{ time: "09:15", activityType: "FREE_PLAY", activityName: "Free Play", notes: "Building blocks." }] },
       meals: { create: [{ mealType: "BREAKFAST", eaten: true, time: "08:40", notes: "Ate well" }] },
     },
+  });
+
+  // 20. VISITORS — a mix: some checked out, some still on premises today.
+  const minsAgoV = (m: number) => new Date(Date.now() - m * 60 * 1000);
+  await prisma.visitorRegister.createMany({
+    data: [
+      { name: "Ramesh Kumar", phone: "9876543210", purpose: "PARENT_VISIT", visitingWhomId: principal.id, checkInTime: minsAgoV(180), checkOutTime: minsAgoV(150), idProofType: "AADHAAR", idNumber: "XXXX-1234", schoolId: school.id },
+      { name: "BookWorld Supplies", phone: "9811122233", purpose: "VENDOR", visitingWhomId: principal.id, checkInTime: minsAgoV(90), checkOutTime: minsAgoV(40), idProofType: "DRIVING_LICENSE", schoolId: school.id },
+      { name: "Sunita Sharma", phone: "9876543210", purpose: "PARENT_VISIT", visitingWhomId: teacher.id, checkInTime: minsAgoV(45), idProofType: "AADHAAR", notes: "Discussing admission", schoolId: school.id }, // still here
+      { name: "Education Dept Official", phone: "9999000011", purpose: "OFFICIAL", visitingWhomId: principal.id, checkInTime: minsAgoV(20), idProofType: "VOTER_ID", schoolId: school.id }, // still here
+    ],
+  });
+  // A repeat visitor: Ramesh's phone appears multiple times across past days.
+  const daysAgoV = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+  await prisma.visitorRegister.createMany({
+    data: [2, 5, 9].map((d) => ({ name: "Ramesh Kumar", phone: "9876543210", purpose: "PARENT_VISIT", visitingWhomId: teacher.id, checkInTime: daysAgoV(d), checkOutTime: new Date(daysAgoV(d).getTime() + 30 * 60000), idProofType: "AADHAAR", schoolId: school.id })),
+  });
+
+  // 21. ENQUIRY CATEGORIES + a funnel of enquiries across the pipeline.
+  const [catAcademic, catFees] = await Promise.all([
+    prisma.enquiryCategory.create({ data: { name: "Academic", schoolId: school.id } }),
+    prisma.enquiryCategory.create({ data: { name: "Fees", schoolId: school.id } }),
+  ]);
+  await prisma.enquiryCategory.create({ data: { name: "Transport", schoolId: school.id } });
+
+  const dayUTCe = (off: number) => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + off)); };
+  async function makeEnquiry(d: { parentName: string; phone: string; childName: string; classInterestedIn: string; source: string; status: string; categoryId?: string; followUpDate?: Date | null; closureReason?: string | null }) {
+    const e = await prisma.enquiry.create({ data: { parentName: d.parentName, phone: d.phone, childName: d.childName, classInterestedIn: d.classInterestedIn, source: d.source, status: d.status, categoryId: d.categoryId, followUpDate: d.followUpDate ?? null, closureReason: d.closureReason ?? null, message: "Asked about curriculum and timings.", schoolId: school.id } });
+    await prisma.enquiryActivity.create({ data: { enquiryId: e.id, activityType: "STATUS_CHANGE", toStatus: "NEW", note: "Enquiry created", performedById: principal.id } });
+    return e;
+  }
+  await makeEnquiry({ parentName: "Asha Verma", phone: "9000000001", childName: "Riya Verma", classInterestedIn: "1st", source: "WEBSITE", status: "NEW", categoryId: catAcademic.id, followUpDate: dayUTCe(0) });
+  await makeEnquiry({ parentName: "Vikram Singh", phone: "9000000002", childName: "Arjun Singh", classInterestedIn: "2nd", source: "PHONE", status: "NEW", categoryId: catFees.id });
+  await makeEnquiry({ parentName: "Deepa Nair", phone: "9000000003", childName: "Kiran Nair", classInterestedIn: "1st", source: "REFERRAL", status: "CONTACTED", categoryId: catAcademic.id, followUpDate: dayUTCe(0) });
+  await makeEnquiry({ parentName: "Mohan Rao", phone: "9000000004", childName: "Tara Rao", classInterestedIn: "1st", source: "WALKIN", status: "VISIT_SCHEDULED", followUpDate: dayUTCe(2) });
+  await makeEnquiry({ parentName: "Latha Iyer", phone: "9000000005", childName: "Sam Iyer", classInterestedIn: "2nd", source: "WEBSITE", status: "CLOSED", closureReason: "Chose Other School" });
+
+  // 22. ADMISSIONS — a few applications in the PENDING/APPROVED/REJECTED pipeline.
+  await prisma.admissionQuery.create({
+    data: { studentName: "Neha Gupta", parentName: "Rajesh Gupta", motherName: "Pooja Gupta", phone: "9000111001", email: "rajesh@example.com", classAppliedFor: "1st", gender: "FEMALE", source: "DIRECT", status: "PENDING", schoolId: school.id,
+      activities: { create: { activityType: "STATUS_CHANGE", note: "Application received", performedById: principal.id } } },
+  });
+  await prisma.admissionQuery.create({
+    data: { studentName: "Karan Mehta", parentName: "Sanjay Mehta", phone: "9000111002", classAppliedFor: "2nd", gender: "MALE", source: "WEBSITE", status: "PENDING", schoolId: school.id,
+      activities: { create: { activityType: "STATUS_CHANGE", note: "Application received", performedById: principal.id } } },
+  });
+  await prisma.admissionQuery.create({
+    data: { studentName: "Isha Reddy", parentName: "Venkat Reddy", phone: "9000111003", classAppliedFor: "1st", gender: "FEMALE", source: "REFERRAL", status: "REJECTED", rejectionReason: "Class full", processedById: principal.id, processedAt: new Date(), schoolId: school.id,
+      activities: { create: { activityType: "REJECTED", note: "Class full", performedById: principal.id } } },
   });
 
   console.log("Seed complete:");

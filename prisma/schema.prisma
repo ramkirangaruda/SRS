@@ -127,6 +127,10 @@ model User {
   plannersCreated         Planner[]
   resourcesUploaded       Resource[]
   timetableEntries        TimetableEntry[]     @relation("TeacherTimetable")
+  visitorsHosted          VisitorRegister[]    @relation("VisitorHost")
+  enquiryActivities       EnquiryActivity[]
+  admissionActivities     AdmissionActivity[]
+  admissionsProcessed     AdmissionQuery[]     @relation("AdmissionProcessor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,20 +185,21 @@ model Class {
   schoolId String
   school   School @relation(fields: [schoolId], references: [id])
 
-  sections          Section[]
-  students          Student[]
-  subjects          Subject[]
-  feeStructures     FeeStructure[]
-  homeworks         Homework[]
-  curriculums       Curriculum[]
-  timetables        Timetable[]
-  schoolDiaries     SchoolDiary[]
-  tutorials         Tutorial[]
-  assignments       Assignment[]
-  virtualClassrooms VirtualClassroom[]
-  planners          Planner[]
-  timetableEntries  TimetableEntry[]
-  broadcastMessages BroadcastMessage[] // BroadcastMessage.targetClassId (nullable)
+  sections           Section[]
+  students           Student[]
+  subjects           Subject[]
+  feeStructures      FeeStructure[]
+  homeworks          Homework[]
+  curriculums        Curriculum[]
+  timetables         Timetable[]
+  schoolDiaries      SchoolDiary[]
+  tutorials          Tutorial[]
+  assignments        Assignment[]
+  virtualClassrooms  VirtualClassroom[]
+  planners           Planner[]
+  timetableEntries   TimetableEntry[]
+  admissionsAssigned AdmissionQuery[]   @relation("AdmissionAssignedClass")
+  broadcastMessages  BroadcastMessage[] // BroadcastMessage.targetClassId (nullable)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -209,13 +214,14 @@ model Section {
   classId String
   class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
-  students          Student[]
-  homeworks         Homework[]
-  timetables        Timetable[]
-  schoolDiaries     SchoolDiary[]
-  assignments       Assignment[]
-  timetableEntries  TimetableEntry[]
-  virtualClassrooms VirtualClassroom[]
+  students           Student[]
+  homeworks          Homework[]
+  timetables         Timetable[]
+  schoolDiaries      SchoolDiary[]
+  assignments        Assignment[]
+  timetableEntries   TimetableEntry[]
+  virtualClassrooms  VirtualClassroom[]
+  admissionsAssigned AdmissionQuery[]   @relation("AdmissionAssignedSection")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -248,46 +254,121 @@ model AcademicYear {
 // ADMISSION & ENQUIRY
 // ----------------------------------------------------------------------------
 
-// A prospective admission. status drives the review pipeline.
+// A formal admission application. status: PENDING | APPROVED | REJECTED.
 model AdmissionQuery {
-  id              String  @id @default(cuid())
-  studentName     String
-  parentName      String
-  phone           String
-  email           String?
-  classAppliedFor String
-  status          String  @default("PENDING") // PENDING | APPROVED | REJECTED
-  notes           String?
-  schoolId        String
-  school          School  @relation(fields: [schoolId], references: [id])
+  id                      String              @id @default(cuid())
+  studentName             String
+  dateOfBirth             DateTime?
+  gender                  String?
+  bloodGroup              String?
+  previousSchool          String?
+  classAppliedFor         String
+  // Parent info.
+  parentName              String // father name (kept for back-compat)
+  motherName              String?
+  phone                   String
+  email                   String?
+  address                 String?
+  occupation              String?
+  // Uploaded docs: JSON array [{ name, type, url }].
+  documents               String?
+  source                  String              @default("DIRECT") // DIRECT|WEBSITE|REFERRAL|ADVERTISEMENT|ENQUIRY
+  status                  String              @default("PENDING")
+  notes                   String?
+  // Link back to the originating enquiry (named relation; Enquiry also points here).
+  enquiryId               String?
+  enquiry                 Enquiry?            @relation("AdmissionFromEnquiry", fields: [enquiryId], references: [id])
+  convertedEnquiries      Enquiry[]           @relation("EnquiryConversion")
+  // Filled on approval.
+  assignedAdmissionNumber String?
+  assignedClassId         String?
+  assignedClass           Class?              @relation("AdmissionAssignedClass", fields: [assignedClassId], references: [id])
+  assignedSectionId       String?
+  assignedSection         Section?            @relation("AdmissionAssignedSection", fields: [assignedSectionId], references: [id])
+  rejectionReason         String?
+  processedById           String?
+  processedBy             User?               @relation("AdmissionProcessor", fields: [processedById], references: [id])
+  processedAt             DateTime?
+  activities              AdmissionActivity[]
+  schoolId                String
+  school                  School              @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([schoolId])
-  @@index([status])
+  @@index([schoolId, status])
+  @@index([enquiryId])
 }
 
-// A general enquiry, bucketed by category. status: OPEN | RESOLVED.
+// Interaction history for an admission application (mirrors EnquiryActivity).
+model AdmissionActivity {
+  id            String         @id @default(cuid())
+  admissionId   String
+  admission     AdmissionQuery @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  activityType  String // STATUS_CHANGE | NOTE | APPROVED | REJECTED | INFO_REQUESTED
+  note          String?
+  performedById String
+  performedBy   User           @relation(fields: [performedById], references: [id])
+  createdAt     DateTime       @default(now())
+
+  @@index([admissionId])
+}
+
+// A lead in the admission funnel. status pipeline:
+// NEW -> CONTACTED -> VISIT_SCHEDULED -> CONVERTED | CLOSED
 model Enquiry {
-  id         String           @id @default(cuid())
-  parentName String
-  phone      String
-  email      String?
-  subject    String
-  message    String
-  status     String           @default("OPEN") // OPEN | RESOLVED
-  categoryId String?
-  category   EnquiryCategory? @relation(fields: [categoryId], references: [id])
-  schoolId   String
-  school     School           @relation(fields: [schoolId], references: [id])
+  id                     String            @id @default(cuid())
+  parentName             String
+  phone                  String
+  email                  String?
+  address                String?
+  subject                String? // optional headline
+  message                String? // notes / questions the parent asked
+  // Student of interest.
+  childName              String?
+  childAge               String?
+  childGender            String?
+  currentSchool          String?
+  classInterestedIn      String?
+  source                 String            @default("OTHER") // WALKIN|PHONE|WEBSITE|REFERRAL|OTHER
+  status                 String            @default("NEW")
+  followUpDate           DateTime?
+  closureReason          String? // when CLOSED
+  categoryId             String?
+  category               EnquiryCategory?  @relation(fields: [categoryId], references: [id])
+  // Bidirectional link to the admission this converted into (named relation,
+  // because AdmissionQuery also points back at Enquiry — see "AdmissionFromEnquiry").
+  convertedToAdmissionId String?
+  convertedToAdmission   AdmissionQuery?   @relation("EnquiryConversion", fields: [convertedToAdmissionId], references: [id])
+  admissions             AdmissionQuery[]  @relation("AdmissionFromEnquiry")
+  activities             EnquiryActivity[]
+  schoolId               String
+  school                 School            @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([schoolId])
-  @@index([status])
+  @@index([schoolId, status])
+  @@index([schoolId, followUpDate])
   @@index([categoryId])
+}
+
+// Full interaction history for an enquiry — every status change, note, call,
+// follow-up. We keep this separate from the current `status` so we have an audit
+// trail of HOW a lead progressed, not just where it ended up.
+model EnquiryActivity {
+  id            String   @id @default(cuid())
+  enquiryId     String
+  enquiry       Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  activityType  String // STATUS_CHANGE | NOTE | CALL | FOLLOW_UP
+  fromStatus    String?
+  toStatus      String?
+  note          String?
+  performedById String
+  performedBy   User     @relation(fields: [performedById], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@index([enquiryId])
 }
 
 // Categories for enquiries, e.g. "Fees", "Transport".
@@ -1240,24 +1321,28 @@ model TimetableEntry {
 // VISITORS
 // ----------------------------------------------------------------------------
 
-// Front-desk visitor log.
+// Front-desk visitor log (sign-in / sign-out).
 model VisitorRegister {
-  id           String    @id @default(cuid())
-  name         String
-  phone        String?
-  purpose      String?
-  visitingWhom String?
-  checkInTime  DateTime  @default(now())
-  checkOutTime DateTime?
-  idProof      String?
-  schoolId     String
-  school       School    @relation(fields: [schoolId], references: [id])
+  id             String    @id @default(cuid())
+  name           String
+  phone          String
+  purpose        String    @default("OTHER") // PARENT_VISIT|VENDOR|OFFICIAL|INTERVIEW|MAINTENANCE|OTHER
+  purposeOther   String? // free text when purpose = OTHER
+  visitingWhomId String?
+  visitingWhom   User?     @relation("VisitorHost", fields: [visitingWhomId], references: [id])
+  checkInTime    DateTime  @default(now())
+  checkOutTime   DateTime? // null = still on premises
+  idProofType    String? // AADHAAR|DRIVING_LICENSE|VOTER_ID|PASSPORT|OTHER
+  idNumber       String?
+  notes          String?
+  schoolId       String
+  school         School    @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([schoolId])
-  @@index([checkInTime])
+  @@index([schoolId, checkInTime]) // fast "today's visitors" queries
+  @@index([phone]) // repeat-visitor detection
 }
 
 // ----------------------------------------------------------------------------

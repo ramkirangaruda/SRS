@@ -28,6 +28,9 @@ import {
   ClipboardList,
   Baby,
   FolderOpen,
+  ClipboardCheck,
+  UserPlus,
+  DoorOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -61,4 +64,7 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   planners: ClipboardList,
   daycare: Baby,
   resources: FolderOpen,
+  visitors: DoorOpen,
+  enquiry: ClipboardCheck,
+  admissions: UserPlus,
 };
