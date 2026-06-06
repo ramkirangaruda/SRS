@@ -38,6 +38,16 @@ async function main() {
   await prisma.attendance.deleteMany();
   await prisma.feePayment.deleteMany();
   await prisma.feeStructure.deleteMany();
+  // Phase 13: daycare (child tables cascade from log), meeting room, planners.
+  await prisma.daycareActivity.deleteMany();
+  await prisma.daycareMeal.deleteMany();
+  await prisma.daycareNap.deleteMany();
+  await prisma.daycareLog.deleteMany();
+  await prisma.meetingMessage.deleteMany();
+  await prisma.meetingGroupMember.deleteMany();
+  await prisma.meetingGroup.deleteMany();
+  await prisma.planner.deleteMany();
+  await prisma.resource.deleteMany();
   // Phase 12: timetable + virtual classroom + staff reference class/user/year.
   await prisma.timetableEntry.deleteMany();
   await prisma.periodTemplate.deleteMany();
@@ -307,6 +317,77 @@ async function main() {
       { title: "Science: The Water Cycle", description: "Live now — join in!", meetingLink: "https://zoom.us/j/1234567890", classId: class1.id, sectionId: sec1A.id, subjectId: subjByName["Science"], scheduledAt: hourFromNow(-0.2), duration: 45, hostId: teacher2.id, status: "SCHEDULED", schoolId: school.id },
       { title: "English: Story Time", description: "Reading aloud session.", meetingLink: "https://meet.google.com/xyz-uvwx-yz", classId: class1.id, sectionId: sec1A.id, subjectId: subjByName["English"], scheduledAt: hourFromNow(3), duration: 45, hostId: teacher3.id, status: "SCHEDULED", schoolId: school.id },
     ],
+  });
+
+  // 17. MEETING ROOM — one staff group with the principal (ADMIN) + teachers,
+  //     a few messages, and a SYSTEM "group created" line.
+  const group = await prisma.meetingGroup.create({
+    data: {
+      name: "Primary Teachers", description: "Coordination for the primary wing.", createdById: principal.id, schoolId: school.id,
+      members: {
+        create: [
+          { userId: principal.id, role: "ADMIN", lastReadAt: new Date() },
+          { userId: teacher.id, role: "MEMBER" },
+          { userId: teacher2.id, role: "MEMBER" },
+          { userId: teacher3.id, role: "MEMBER" },
+        ],
+      },
+    },
+  });
+  const minsAgo = (m: number) => new Date(Date.now() - m * 60 * 1000);
+  await prisma.meetingMessage.createMany({
+    data: [
+      { groupId: group.id, senderId: principal.id, message: "Group created", messageType: "SYSTEM", createdAt: minsAgo(120) },
+      { groupId: group.id, senderId: principal.id, message: "Welcome everyone! Use this group for daily coordination.", createdAt: minsAgo(90) },
+      { groupId: group.id, senderId: teacher2.id, message: "Thanks! Should we finalise the sports day schedule here?", createdAt: minsAgo(45) },
+      { groupId: group.id, senderId: teacher.id, message: "Yes, I'll share a draft this afternoon.", createdAt: minsAgo(10) },
+    ],
+  });
+
+  // 18. PLANNERS & RESOURCES.
+  await prisma.planner.createMany({
+    data: [
+      { title: "Week 1 — Numbers 1–10", description: "Introduce counting with manipulatives. Day 1: number recognition…", type: "WEEKLY_PLAN", classId: class1.id, subjectId: subjByName["Mathematics"], createdById: teacher.id, schoolId: school.id },
+      { title: "Art & Craft: Paper Collage", description: "Materials: coloured paper, glue. Outcome: fine motor skills.", type: "ACTIVITY", classId: class1.id, createdById: teacher3.id, schoolId: school.id },
+      { title: "Lesson: The Water Cycle", description: "Evaporation → condensation → precipitation with a kettle demo.", type: "LESSON_PLAN", classId: class1.id, subjectId: subjByName["Science"], createdById: teacher2.id, schoolId: school.id },
+    ],
+  });
+  await prisma.resource.createMany({
+    data: [
+      { title: "Addition Worksheet 1", description: "20 single-digit sums.", type: "WORKSHEET", externalUrl: "https://example.com/addition1.pdf", fileName: "addition1.pdf", subjectId: subjByName["Mathematics"], uploadedById: teacher.id, downloadCount: 5, isPublic: true, schoolId: school.id },
+      { title: "Phonics Song (video)", description: "Alphabet phonics sing-along.", type: "VIDEO", externalUrl: "https://youtube.com/watch?v=demo", subjectId: subjByName["English"], uploadedById: teacher3.id, downloadCount: 12, isPublic: true, schoolId: school.id },
+      { title: "Water Cycle Diagram", description: "Labelled diagram for the lesson.", type: "DOCUMENT", externalUrl: "https://example.com/watercycle.png", fileName: "watercycle.png", subjectId: subjByName["Science"], uploadedById: teacher2.id, downloadCount: 3, isPublic: false, schoolId: school.id },
+    ],
+  });
+
+  // 19. DAYCARE — Mia is the daycare child (isDaycare:true). Give her a log for
+  //     YESTERDAY (full history example) and a partial one for TODAY (checked in).
+  const dayUTC0 = dayUTC(0);
+  const dayUTCm1 = dayUTC(-1);
+  const at = (h: number, m: number) => { const d = new Date(); d.setHours(h, m, 0, 0); return d; };
+  // Yesterday: a complete day with mood + activities + meals + nap.
+  await prisma.daycareLog.create({
+    data: {
+      studentId: mia.id, date: dayUTCm1, checkInTime: at(8, 30), checkOutTime: at(16, 15), mood: "HAPPY",
+      generalNotes: "Had a great day, very cheerful.", recordedById: teacher.id, schoolId: school.id,
+      activities: { create: [
+        { time: "09:30", activityType: "STORY_TIME", activityName: "Story Time", notes: "Enjoyed the picture book." },
+        { time: "11:00", activityType: "OUTDOOR", activityName: "Outdoor Play", notes: "Played on the slide." },
+      ] },
+      meals: { create: [
+        { mealType: "BREAKFAST", eaten: true, time: "08:45", notes: "Ate well" },
+        { mealType: "LUNCH", eaten: true, time: "12:30", notes: "Finished everything" },
+        { mealType: "AFTERNOON_SNACK", eaten: false, time: "15:00", notes: "Not hungry" },
+      ] },
+      naps: { create: [{ startTime: "13:00", endTime: "14:00", quality: "SLEPT_WELL" }] },
+    },
+  });
+  // Today: just checked in, log in progress.
+  await prisma.daycareLog.create({
+    data: { studentId: mia.id, date: dayUTC0, checkInTime: at(8, 25), recordedById: teacher.id, schoolId: school.id,
+      activities: { create: [{ time: "09:15", activityType: "FREE_PLAY", activityName: "Free Play", notes: "Building blocks." }] },
+      meals: { create: [{ mealType: "BREAKFAST", eaten: true, time: "08:40", notes: "Ate well" }] },
+    },
   });
 
   console.log("Seed complete:");

@@ -1,11 +1,13 @@
 // The PRINCIPAL dashboard ("/dashboard/principal"). A Server Component, so it
 // can query the database directly (no API call needed) and render with real data.
 import { getServerSession } from "next-auth";
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Baby } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listEventsForMonth } from "@/lib/events";
 import { unplannedDaysThisWeek } from "@/lib/meals";
+import { daycareToday } from "@/lib/daycare";
 import { todayKey, formatKey } from "@/lib/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -14,11 +16,12 @@ export default async function PrincipalDashboard() {
   const schoolId = session!.user.schoolId;
   const now = new Date();
 
-  const [studentCount, parentCount, monthEvents, unplanned] = await Promise.all([
+  const [studentCount, parentCount, monthEvents, unplanned, daycare] = await Promise.all([
     prisma.student.count({ where: { schoolId } }),
     prisma.user.count({ where: { schoolId, role: "PARENT" } }),
     listEventsForMonth(schoolId, now.getUTCFullYear(), now.getUTCMonth() + 1),
     unplannedDaysThisWeek(schoolId),
+    daycareToday(schoolId),
   ]);
   const todayEvents = monthEvents.filter((e) => e.occurrenceKey === todayKey());
 
@@ -45,6 +48,21 @@ export default async function PrincipalDashboard() {
               <p className="text-sm font-semibold">{unplanned.length} day(s) this week have no school meal planned</p>
               <p className="text-xs">{unplanned.map((k) => formatKey(k)).join(" · ")}</p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Daycare Today widget */}
+      {daycare.total > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-lg"><Baby className="h-5 w-5" /> Daycare Today</CardTitle>
+            <Link href="/principal/daycare" className="text-sm text-blue-600 hover:underline">View all</Link>
+          </CardHeader>
+          <CardContent className="grid grid-cols-3 gap-3 text-center">
+            <div><p className="text-2xl font-bold text-emerald-600">{daycare.checkedIn}</p><p className="text-xs text-muted-foreground">Checked in</p></div>
+            <div><p className="text-2xl font-bold text-muted-foreground">{daycare.notArrived}</p><p className="text-xs text-muted-foreground">Not arrived</p></div>
+            <div><p className="text-2xl font-bold text-blue-600">{daycare.checkedOut}</p><p className="text-xs text-muted-foreground">Checked out</p></div>
           </CardContent>
         </Card>
       )}

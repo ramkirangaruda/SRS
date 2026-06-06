@@ -67,7 +67,7 @@ model School {
   holidays            Holiday[]
   mealCalendars       MealCalendar[]
   meetingGroups       MeetingGroup[]
-  daycareHistories    DaycareHistory[]
+  daycareLogs         DaycareLog[]
   galleryAlbums       GalleryAlbum[]
   videos              Video[]
   staffMembers        StaffMember[]
@@ -121,7 +121,7 @@ model User {
   meetingGroupsCreated    MeetingGroup[]
   meetingGroupMemberships MeetingGroupMember[]
   meetingMessages         MeetingMessage[]
-  daycareRecords          DaycareHistory[]
+  daycareLogsRecorded     DaycareLog[]
   staffMember             StaffMember? // 1:1
   virtualClassroomsHosted VirtualClassroom[]
   plannersCreated         Planner[]
@@ -163,7 +163,7 @@ model Student {
   testReports           TestReport[]
   progressReports       ProgressReport[]
   assignmentSubmissions AssignmentSubmission[]
-  daycareHistories      DaycareHistory[]
+  daycareLogs           DaycareLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -558,6 +558,7 @@ model Subject {
   testReports       TestReport[]
   homeworks         Homework[]
   resources         Resource[]
+  planners          Planner[]
   timetableEntries  TimetableEntry[]
   virtualClassrooms VirtualClassroom[]
 
@@ -903,6 +904,8 @@ model MeetingGroup {
   id          String  @id @default(cuid())
   name        String
   description String?
+  icon        String? // optional avatar URL; UI falls back to initials
+  isActive    Boolean @default(true) // soft delete — hide group, keep messages
   createdById String
   createdBy   User    @relation(fields: [createdById], references: [id])
   schoolId    String
@@ -921,17 +924,25 @@ model MeetingGroup {
 // JOIN TABLE for the User<->MeetingGroup many-to-many. The unique pair prevents
 // adding the same user to a group twice.
 model MeetingGroupMember {
-  id      String       @id @default(cuid())
-  groupId String
-  group   MeetingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  userId  String
-  user    User         @relation(fields: [userId], references: [id])
+  id         String       @id @default(cuid())
+  groupId    String
+  group      MeetingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  role       String       @default("MEMBER") // ADMIN | MEMBER (principal = ADMIN)
+  isActive   Boolean      @default(true) // soft removal — see Phase 13 notes
+  joinedAt   DateTime     @default(now())
+  // UNREAD CURSOR: the moment this user last opened the chat. Unread count is
+  // "messages with createdAt > lastReadAt" — an O(1) range count per group,
+  // instead of a read-row per message per user. See the read-tracking note.
+  lastReadAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([groupId, userId])
   @@index([userId])
+  @@index([groupId, userId]) // fast membership checks
 }
 
 // A message in a group. Deleting the group cascades its messages.
@@ -942,44 +953,101 @@ model MeetingMessage {
   senderId    String
   sender      User         @relation(fields: [senderId], references: [id])
   message     String
-  attachments String? // JSON array of file URLs.
+  messageType String       @default("TEXT") // TEXT | FILE | SYSTEM
+  fileUrl     String?
+  fileName    String?
+  fileType    String?
+  attachments String? // legacy JSON array of file URLs (kept for compatibility)
+  isDeleted   Boolean      @default(false) // soft delete → "This message was deleted"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([groupId])
   @@index([senderId])
-  @@index([createdAt])
+  // Composite index: messages are ALWAYS loaded "this group, newest first", so
+  // an index on (groupId, createdAt) lets the DB seek + scan in order.
+  @@index([groupId, createdAt])
 }
 
 // ----------------------------------------------------------------------------
 // DAYCARE
 // ----------------------------------------------------------------------------
 
-// A daily daycare log for a student.
-model DaycareHistory {
+// A daily daycare log for a student. ONE row per (student, date) — enforced by
+// the unique constraint, so check-in/out is idempotent per day.
+//
+// WHY child tables (DaycareActivity/Meal/Nap) instead of JSON columns: activities
+// and meals are QUERYABLE, structured, repeating records — "most common activity
+// this week", "did they eat lunch", calendar rollups. Separate tables give each
+// row real columns, indexes, and integrity. JSON would be acceptable only if the
+// data were opaque blobs we never query into; here we aggregate across them.
+model DaycareLog {
   id           String    @id @default(cuid())
   studentId    String
   student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  date         DateTime
-  checkInTime  DateTime?
+  date         DateTime // UTC-midnight day key
+  checkInTime  DateTime? // stored as a UTC instant; displayed in local time
   checkOutTime DateTime?
-  activities   String?
-  meals        String?
-  nap          String?
-  notes        String?
+  mood         String? // HAPPY | OKAY | UPSET | SICK
+  generalNotes String?
   recordedById String
   recordedBy   User      @relation(fields: [recordedById], references: [id])
   schoolId     String
   school       School    @relation(fields: [schoolId], references: [id])
 
+  activities DaycareActivity[]
+  meals      DaycareMeal[]
+  naps       DaycareNap[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([studentId, date]) // one log per child per day
   @@index([schoolId])
   @@index([studentId])
   @@index([date])
   @@index([recordedById])
+}
+
+model DaycareActivity {
+  id           String     @id @default(cuid())
+  daycareLogId String
+  log          DaycareLog @relation(fields: [daycareLogId], references: [id], onDelete: Cascade)
+  time         String? // "HH:MM"
+  activityType String     @default("OTHER") // FREE_PLAY|ART_CRAFT|STORY_TIME|OUTDOOR|MUSIC|LEARNING|OTHER
+  activityName String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([daycareLogId])
+}
+
+model DaycareMeal {
+  id           String     @id @default(cuid())
+  daycareLogId String
+  log          DaycareLog @relation(fields: [daycareLogId], references: [id], onDelete: Cascade)
+  mealType     String // BREAKFAST | MORNING_SNACK | LUNCH | AFTERNOON_SNACK
+  eaten        Boolean    @default(false)
+  time         String? // "HH:MM"
+  notes        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([daycareLogId])
+}
+
+model DaycareNap {
+  id           String     @id @default(cuid())
+  daycareLogId String
+  log          DaycareLog @relation(fields: [daycareLogId], references: [id], onDelete: Cascade)
+  startTime    String? // "HH:MM"
+  endTime      String? // "HH:MM"
+  quality      String? // SLEPT_WELL | RESTLESS | DIDNT_SLEEP
+
+  createdAt DateTime @default(now())
+
+  @@index([daycareLogId])
 }
 
 // ----------------------------------------------------------------------------
@@ -1196,42 +1264,54 @@ model VisitorRegister {
 // PLANNERS & RESOURCES
 // ----------------------------------------------------------------------------
 
-// A teacher planner. type: LESSON_PLAN | ACTIVITY | OTHER.
+// A teacher planner. type: LESSON_PLAN | ACTIVITY | WEEKLY_PLAN | MONTHLY_PLAN | OTHER.
+// The plan can live INLINE (in `description`, edited in-app) and/or as an
+// attached `fileUrl`. Inline is preferred for plans teachers revise often.
 model Planner {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
-  description String?
-  type        String  @default("OTHER")
+  description String? // inline plan content (rich text/markdown)
+  type        String   @default("OTHER")
   fileUrl     String?
+  fileName    String?
   classId     String?
-  class       Class?  @relation(fields: [classId], references: [id])
+  class       Class?   @relation(fields: [classId], references: [id])
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
   createdById String
-  createdBy   User    @relation(fields: [createdById], references: [id])
+  createdBy   User     @relation(fields: [createdById], references: [id])
   schoolId    String
-  school      School  @relation(fields: [schoolId], references: [id])
+  school      School   @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([schoolId])
   @@index([classId])
+  @@index([subjectId])
   @@index([createdById])
   @@index([type])
 }
 
-// A shared resource. type: DOCUMENT | VIDEO | LINK.
+// A shared resource. type: DOCUMENT | VIDEO | LINK | WORKSHEET | PRESENTATION.
 model Resource {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  fileUrl      String?
-  type         String   @default("DOCUMENT")
-  subjectId    String?
-  subject      Subject? @relation(fields: [subjectId], references: [id])
-  uploadedById String
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
-  schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id])
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  fileUrl       String? // uploaded file
+  externalUrl   String? // OR an external link (type LINK/VIDEO)
+  fileName      String?
+  fileSize      Int? // bytes
+  fileType      String? // mime type
+  type          String   @default("DOCUMENT")
+  downloadCount Int      @default(0) // bumped atomically on each download
+  isPublic      Boolean  @default(false) // shared with parents?
+  subjectId     String?
+  subject       Subject? @relation(fields: [subjectId], references: [id])
+  uploadedById  String
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1240,4 +1320,5 @@ model Resource {
   @@index([subjectId])
   @@index([uploadedById])
   @@index([type])
+  @@index([isPublic])
 }

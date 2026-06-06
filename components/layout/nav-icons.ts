@@ -24,6 +24,10 @@ import {
   Award,
   CalendarClock,
   MonitorPlay,
+  MessagesSquare,
+  ClipboardList,
+  Baby,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -53,4 +57,8 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   reports: Award,
   timetable: CalendarClock,
   virtualclassroom: MonitorPlay,
+  meetingroom: MessagesSquare,
+  planners: ClipboardList,
+  daycare: Baby,
+  resources: FolderOpen,
 };

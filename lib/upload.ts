@@ -13,7 +13,7 @@ export type { StoredFile };
 
 // Only these subfolders may be written to — prevents a crafted "folder" value
 // from escaping into the filesystem (path traversal).
-const ALLOWED_FOLDERS = new Set(["uploads", "homework-attachments", "videos", "submissions"]);
+const ALLOWED_FOLDERS = new Set(["uploads", "homework-attachments", "videos", "submissions", "meeting-files", "resources", "planners"]);
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB for direct video uploads
 
