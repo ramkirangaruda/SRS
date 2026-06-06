@@ -30,98 +30,106 @@ datasource db {
 // The tenant root. Almost every other record carries a schoolId pointing here,
 // which is what makes the app "multi-school" ready: data is partitioned per school.
 model School {
-  id                 String   @id @default(cuid())
-  name               String
-  address            String?
-  logo               String?
-  phone              String?
-  email              String?
-  activeAcademicYear String? // Convenience label, e.g. "2025-2026".
-  showRankToParents  Boolean  @default(false) // whether parents see class rank
+  id                        String  @id @default(cuid())
+  name                      String
+  address                   String?
+  logo                      String?
+  phone                     String?
+  email                     String?
+  activeAcademicYear        String? // Convenience label, e.g. "2025-2026".
+  showRankToParents         Boolean @default(false) // whether parents see class rank
+  showStaffContactToParents Boolean @default(false) // parents see staff phone/email
 
   // Back-relations: one School has many of nearly everything. These let us write
   // queries like `prisma.school.findFirst({ include: { students: true } })`.
-  users              User[]
-  students           Student[]
-  classes            Class[]
-  academicYears      AcademicYear[]
-  admissionQueries   AdmissionQuery[]
-  enquiries          Enquiry[]
-  enquiryCategories  EnquiryCategory[]
-  broadcastMessages  BroadcastMessage[]
-  feedbacks          Feedback[]
-  schoolDiaries      SchoolDiary[]
-  feeStructures      FeeStructure[]
-  feePayments        FeePayment[]
-  homeworks          Homework[]
-  subjects           Subject[]
-  curriculums        Curriculum[]
-  timetables         Timetable[]
-  testReports        TestReport[]
-  progressReports    ProgressReport[]
+  users               User[]
+  students            Student[]
+  classes             Class[]
+  academicYears       AcademicYear[]
+  admissionQueries    AdmissionQuery[]
+  enquiries           Enquiry[]
+  enquiryCategories   EnquiryCategory[]
+  broadcastMessages   BroadcastMessage[]
+  feedbacks           Feedback[]
+  schoolDiaries       SchoolDiary[]
+  feeStructures       FeeStructure[]
+  feePayments         FeePayment[]
+  homeworks           Homework[]
+  subjects            Subject[]
+  curriculums         Curriculum[]
+  timetables          Timetable[]
+  testReports         TestReport[]
+  progressReports     ProgressReport[]
   eLearningCategories ELearningCategory[]
-  tutorials          Tutorial[]
-  assignments        Assignment[]
-  events             Event[]
-  holidays           Holiday[]
-  mealCalendars      MealCalendar[]
-  meetingGroups      MeetingGroup[]
-  daycareHistories   DaycareHistory[]
-  galleryAlbums      GalleryAlbum[]
-  videos             Video[]
-  staffMembers       StaffMember[]
-  virtualClassrooms  VirtualClassroom[]
-  visitorRegisters   VisitorRegister[]
-  planners           Planner[]
-  resources          Resource[]
+  tutorials           Tutorial[]
+  assignments         Assignment[]
+  events              Event[]
+  holidays            Holiday[]
+  mealCalendars       MealCalendar[]
+  meetingGroups       MeetingGroup[]
+  daycareHistories    DaycareHistory[]
+  galleryAlbums       GalleryAlbum[]
+  videos              Video[]
+  staffMembers        StaffMember[]
+  virtualClassrooms   VirtualClassroom[]
+  visitorRegisters    VisitorRegister[]
+  planners            Planner[]
+  resources           Resource[]
+  periodTemplates     PeriodTemplate[]
+  timetableEntries    TimetableEntry[]
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Anyone who can log in. role is "PRINCIPAL" | "TEACHER" | "PARENT" (validated in
 // lib/roles.ts). We store passwordHash (bcrypt), never plaintext.
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  password     String // bcrypt hash. Named per spec; treat as the hash.
-  phone        String?
-  role         String   @default("PARENT")
-  avatar       String?
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String // bcrypt hash. Named per spec; treat as the hash.
+  phone    String?
+  role     String  @default("PARENT")
+  avatar   String?
+  // Soft on/off switch. Deactivating a teacher (e.g. resigned) flips this to
+  // false so they can't log in, WITHOUT deleting the user — preserving all the
+  // historical rows (timetable, homework, virtual classes) that reference them.
+  isActive Boolean @default(true)
 
-  schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id])
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id])
 
   // A PARENT links to their children (1:N). Single relation -> no relation name.
-  children     Student[]
+  children Student[]
 
   // Every place a User can act gets its own back-relation. Where a model touches
   // User more than once (Feedback) we MUST name the relations to disambiguate.
-  attendancesMarked        Attendance[]
-  broadcastMessages        BroadcastMessage[]
-  broadcastReceipts        BroadcastRecipient[]
-  diaryReads               DiaryRead[]
-  feedbacksGiven           Feedback[]          @relation("FeedbackParent")
-  feedbacksReplied         Feedback[]          @relation("FeedbackRepliedBy")
-  feedbackMessages         FeedbackMessage[]
-  schoolDiaries            SchoolDiary[]
-  feePaymentsCollected     FeePayment[]
-  homeworksAssigned        Homework[]
-  tutorialsUploaded        Tutorial[]
-  assignmentsUploaded      Assignment[]
-  videosUploaded           Video[]
-  meetingGroupsCreated     MeetingGroup[]
-  meetingGroupMemberships  MeetingGroupMember[]
-  meetingMessages          MeetingMessage[]
-  daycareRecords           DaycareHistory[]
-  staffMember              StaffMember? // 1:1
-  virtualClassroomsHosted  VirtualClassroom[]
-  plannersCreated          Planner[]
-  resourcesUploaded        Resource[]
+  attendancesMarked       Attendance[]
+  broadcastMessages       BroadcastMessage[]
+  broadcastReceipts       BroadcastRecipient[]
+  diaryReads              DiaryRead[]
+  feedbacksGiven          Feedback[]           @relation("FeedbackParent")
+  feedbacksReplied        Feedback[]           @relation("FeedbackRepliedBy")
+  feedbackMessages        FeedbackMessage[]
+  schoolDiaries           SchoolDiary[]
+  feePaymentsCollected    FeePayment[]
+  homeworksAssigned       Homework[]
+  tutorialsUploaded       Tutorial[]
+  assignmentsUploaded     Assignment[]
+  videosUploaded          Video[]
+  meetingGroupsCreated    MeetingGroup[]
+  meetingGroupMemberships MeetingGroupMember[]
+  meetingMessages         MeetingMessage[]
+  daycareRecords          DaycareHistory[]
+  staffMember             StaffMember? // 1:1
+  virtualClassroomsHosted VirtualClassroom[]
+  plannersCreated         Planner[]
+  resourcesUploaded       Resource[]
+  timetableEntries        TimetableEntry[]     @relation("TeacherTimetable")
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([schoolId])
   @@index([role])
@@ -130,15 +138,15 @@ model User {
 // A pupil. admissionNumber is unique (front-desk lookup key). classId required;
 // sectionId/parentId optional so a student can exist before full assignment.
 model Student {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   name            String
-  admissionNumber String   @unique
+  admissionNumber String    @unique
   dateOfBirth     DateTime?
   gender          String? // "MALE" | "FEMALE" | "OTHER"
   bloodGroup      String?
   address         String?
   photo           String?
-  isDaycare       Boolean  @default(false) // enrolled in daycare (shows daycare menu)
+  isDaycare       Boolean   @default(false) // enrolled in daycare (shows daycare menu)
 
   classId   String
   class     Class    @relation(fields: [classId], references: [id])
@@ -185,6 +193,7 @@ model Class {
   assignments       Assignment[]
   virtualClassrooms VirtualClassroom[]
   planners          Planner[]
+  timetableEntries  TimetableEntry[]
   broadcastMessages BroadcastMessage[] // BroadcastMessage.targetClassId (nullable)
 
   createdAt DateTime @default(now())
@@ -200,11 +209,13 @@ model Section {
   classId String
   class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
 
-  students      Student[]
-  homeworks     Homework[]
-  timetables    Timetable[]
-  schoolDiaries SchoolDiary[]
-  assignments   Assignment[]
+  students          Student[]
+  homeworks         Homework[]
+  timetables        Timetable[]
+  schoolDiaries     SchoolDiary[]
+  assignments       Assignment[]
+  timetableEntries  TimetableEntry[]
+  virtualClassrooms VirtualClassroom[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -222,8 +233,9 @@ model AcademicYear {
   schoolId  String
   school    School   @relation(fields: [schoolId], references: [id])
 
-  feeStructures   FeeStructure[]
-  progressReports ProgressReport[]
+  feeStructures    FeeStructure[]
+  progressReports  ProgressReport[]
+  timetableEntries TimetableEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -238,16 +250,16 @@ model AcademicYear {
 
 // A prospective admission. status drives the review pipeline.
 model AdmissionQuery {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   studentName     String
   parentName      String
   phone           String
   email           String?
   classAppliedFor String
-  status          String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  status          String  @default("PENDING") // PENDING | APPROVED | REJECTED
   notes           String?
   schoolId        String
-  school          School   @relation(fields: [schoolId], references: [id])
+  school          School  @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -258,17 +270,17 @@ model AdmissionQuery {
 
 // A general enquiry, bucketed by category. status: OPEN | RESOLVED.
 model Enquiry {
-  id         String          @id @default(cuid())
+  id         String           @id @default(cuid())
   parentName String
   phone      String
   email      String?
   subject    String
   message    String
-  status     String          @default("OPEN") // OPEN | RESOLVED
+  status     String           @default("OPEN") // OPEN | RESOLVED
   categoryId String?
   category   EnquiryCategory? @relation(fields: [categoryId], references: [id])
   schoolId   String
-  school     School          @relation(fields: [schoolId], references: [id])
+  school     School           @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,7 +314,7 @@ model Attendance {
   studentId  String
   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   date       DateTime
-  status     String   // PRESENT | ABSENT | LATE | HALF_DAY
+  status     String // PRESENT | ABSENT | LATE | HALF_DAY
   markedById String
   markedBy   User     @relation(fields: [markedById], references: [id])
   note       String?
@@ -325,22 +337,22 @@ model Attendance {
 // BroadcastRecipient (one row per targeted user) — that's what powers per-user
 // read tracking and the inbox. targetRole/targetLabel are for display/filtering.
 model BroadcastMessage {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   title         String
   message       String
   sentById      String
-  sentBy        User     @relation(fields: [sentById], references: [id])
-  targetRole    String   @default("ALL") // ALL | PARENTS | TEACHERS | CLASSES
+  sentBy        User      @relation(fields: [sentById], references: [id])
+  targetRole    String    @default("ALL") // ALL | PARENTS | TEACHERS | CLASSES
   targetClassId String?
-  targetClass   Class?   @relation(fields: [targetClassId], references: [id])
+  targetClass   Class?    @relation(fields: [targetClassId], references: [id])
   targetLabel   String? // human label, e.g. "Parents of Class 5 - A"
-  urgent        Boolean  @default(false)
+  urgent        Boolean   @default(false)
   attachments   String? // JSON array of attachment objects
   deletedAt     DateTime? // soft delete: non-null = deleted (kept for the record)
   schoolId      String
-  school        School   @relation(fields: [schoolId], references: [id])
+  school        School    @relation(fields: [schoolId], references: [id])
 
-  recipients    BroadcastRecipient[]
+  recipients BroadcastRecipient[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -387,32 +399,32 @@ model DiaryRead {
 // a single reply doesn't. status is a small state machine: PENDING | REPLIED |
 // CLOSED | REOPENED (transitions enforced in lib/feedback-state.ts).
 model Feedback {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   // referenceNumber like "FB-2026-0001", unique, generated atomically (Counter).
-  referenceNumber String   @unique
+  referenceNumber String    @unique
   parentId        String
   // The parent link is ALWAYS stored (so the parent can track their own ticket).
   // For anonymous tickets the API/lib layer never exposes it — see the anonymity
   // walkthrough for the tradeoff this implies.
-  parent          User     @relation("FeedbackParent", fields: [parentId], references: [id])
+  parent          User      @relation("FeedbackParent", fields: [parentId], references: [id])
   subject         String
-  message         String   // original body (also the first FeedbackMessage)
+  message         String // original body (also the first FeedbackMessage)
   category        String? // Academic | Fees | Transport | Facilities | Staff | Other
-  isAnonymous     Boolean  @default(false)
-  status          String   @default("PENDING") // PENDING | REPLIED | CLOSED | REOPENED
+  isAnonymous     Boolean   @default(false)
+  status          String    @default("PENDING") // PENDING | REPLIED | CLOSED | REOPENED
   closingNote     String?
   lastReplyAt     DateTime? // when the principal last replied (drives parent unread)
   parentSeenAt    DateTime? // when the parent last opened it (drives parent unread)
 
   // legacy single-reply fields (kept nullable, unused — the thread is authoritative)
-  reply           String?
-  repliedById     String?
-  repliedBy       User?    @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
+  reply       String?
+  repliedById String?
+  repliedBy   User?   @relation("FeedbackRepliedBy", fields: [repliedById], references: [id])
 
-  schoolId        String
-  school          School   @relation(fields: [schoolId], references: [id])
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id])
 
-  messages        FeedbackMessage[]
+  messages FeedbackMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -433,7 +445,7 @@ model FeedbackMessage {
   feedback    Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
   senderId    String
   sender      User     @relation(fields: [senderId], references: [id])
-  senderRole  String   // PARENT | PRINCIPAL (drives chat bubble side)
+  senderRole  String // PARENT | PRINCIPAL (drives chat bubble side)
   message     String
   attachments String? // JSON array of attachment objects
   createdAt   DateTime @default(now())
@@ -452,21 +464,21 @@ model Counter {
 
 // A dated diary note for a class (optionally a specific section).
 model SchoolDiary {
-  id           String   @id @default(cuid())
-  title        String
-  content      String
-  date         DateTime
-  attachments  String? // JSON array of attachment objects
-  classId      String
-  class        Class    @relation(fields: [classId], references: [id])
-  sectionId    String?  // null = whole class
-  section      Section? @relation(fields: [sectionId], references: [id])
-  postedById   String
-  postedBy     User     @relation(fields: [postedById], references: [id])
-  schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id])
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  date        DateTime
+  attachments String? // JSON array of attachment objects
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  sectionId   String? // null = whole class
+  section     Section? @relation(fields: [sectionId], references: [id])
+  postedById  String
+  postedBy    User     @relation(fields: [postedById], references: [id])
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
 
-  reads        DiaryRead[]
+  reads DiaryRead[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -510,9 +522,9 @@ model FeePayment {
   id            String   @id @default(cuid())
   studentId     String
   student       Student  @relation(fields: [studentId], references: [id])
-  amount        Int      // paise (smallest unit), integer — see lib/money.ts
+  amount        Int // paise (smallest unit), integer — see lib/money.ts
   date          DateTime
-  mode          String   // CASH | ONLINE | CHEQUE | UPI
+  mode          String // CASH | ONLINE | CHEQUE | UPI
   receiptNumber String   @unique
   notes         String?
   collectedById String
@@ -542,10 +554,12 @@ model Subject {
   schoolId String
   school   School @relation(fields: [schoolId], references: [id])
 
-  curriculums Curriculum[]
-  testReports TestReport[]
-  homeworks   Homework[]
-  resources   Resource[]
+  curriculums       Curriculum[]
+  testReports       TestReport[]
+  homeworks         Homework[]
+  resources         Resource[]
+  timetableEntries  TimetableEntry[]
+  virtualClassrooms VirtualClassroom[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -617,8 +631,8 @@ model Timetable {
   class     Class    @relation(fields: [classId], references: [id])
   sectionId String?
   section   Section? @relation(fields: [sectionId], references: [id])
-  dayOfWeek String   // "MONDAY".."SUNDAY"
-  periods   String   // JSON: [{ time, subject, teacher }, ...]
+  dayOfWeek String // "MONDAY".."SUNDAY"
+  periods   String // JSON: [{ time, subject, teacher }, ...]
   schoolId  String
   school    School   @relation(fields: [schoolId], references: [id])
 
@@ -670,28 +684,28 @@ model TestReport {
 // generation time — a point-in-time document. status separates DRAFT (internal)
 // from PUBLISHED (visible to parents). generatedAt drives staleness detection.
 model ProgressReport {
-  id             String       @id @default(cuid())
-  studentId      String
-  student        Student      @relation(fields: [studentId], references: [id])
-  academicYearId String
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
-  term           String
-  classId        String?
-  sectionId      String?
-  remarks        String?
-  coCurricular   String?
-  conduct        String? // A | B | C | D
-  overallGrade   String?
-  overallPercent Float?
+  id                String       @id @default(cuid())
+  studentId         String
+  student           Student      @relation(fields: [studentId], references: [id])
+  academicYearId    String
+  academicYear      AcademicYear @relation(fields: [academicYearId], references: [id])
+  term              String
+  classId           String?
+  sectionId         String?
+  remarks           String?
+  coCurricular      String?
+  conduct           String? // A | B | C | D
+  overallGrade      String?
+  overallPercent    Float?
   attendancePercent Float?
-  rank           Int?
-  data           String? // JSON snapshot: subject rows + attendance for rendering
-  status         String       @default("DRAFT") // DRAFT | PUBLISHED
-  reportFileUrl  String?
-  generatedAt    DateTime? // when the snapshot was computed (staleness baseline)
-  publishedAt    DateTime?
-  schoolId       String
-  school         School       @relation(fields: [schoolId], references: [id])
+  rank              Int?
+  data              String? // JSON snapshot: subject rows + attendance for rendering
+  status            String       @default("DRAFT") // DRAFT | PUBLISHED
+  reportFileUrl     String?
+  generatedAt       DateTime? // when the snapshot was computed (staleness baseline)
+  publishedAt       DateTime?
+  schoolId          String
+  school            School       @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -727,10 +741,10 @@ model ELearningCategory {
 
 // A learning resource. type: VIDEO | DOCUMENT | LINK.
 model Tutorial {
-  id           String            @id @default(cuid())
+  id           String             @id @default(cuid())
   title        String
   description  String?
-  type         String            @default("LINK")
+  type         String             @default("LINK")
   videoUrl     String?
   embedUrl     String?
   linkUrl      String?
@@ -738,11 +752,11 @@ model Tutorial {
   categoryId   String?
   category     ELearningCategory? @relation(fields: [categoryId], references: [id])
   classId      String?
-  class        Class?            @relation(fields: [classId], references: [id])
+  class        Class?             @relation(fields: [classId], references: [id])
   uploadedById String
-  uploadedBy   User              @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User               @relation(fields: [uploadedById], references: [id])
   schoolId     String
-  school       School            @relation(fields: [schoolId], references: [id])
+  school       School             @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -755,26 +769,26 @@ model Tutorial {
 
 // An e-learning assignment students submit against.
 model Assignment {
-  id           String            @id @default(cuid())
+  id           String             @id @default(cuid())
   title        String
   description  String?
   dueDate      DateTime
   fileUrl      String?
   attachments  String? // JSON array of reference files
   totalMarks   Int?
-  status       String            @default("OPEN") // OPEN | CLOSED
+  status       String             @default("OPEN") // OPEN | CLOSED
   categoryId   String?
   category     ELearningCategory? @relation(fields: [categoryId], references: [id])
   classId      String?
-  class        Class?            @relation(fields: [classId], references: [id])
+  class        Class?             @relation(fields: [classId], references: [id])
   sectionId    String?
-  section      Section?          @relation(fields: [sectionId], references: [id])
+  section      Section?           @relation(fields: [sectionId], references: [id])
   uploadedById String
-  uploadedBy   User              @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User               @relation(fields: [uploadedById], references: [id])
   schoolId     String
-  school       School            @relation(fields: [schoolId], references: [id])
+  school       School             @relation(fields: [schoolId], references: [id])
 
-  submissions  AssignmentSubmission[]
+  submissions AssignmentSubmission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -813,25 +827,25 @@ model AssignmentSubmission {
 
 // A calendar event. type: EXAM | SPORTS | CULTURAL | HOLIDAY | PTM | OTHER.
 model Event {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  date        DateTime // start day (UTC midnight)
-  endDate     DateTime? // optional end day for multi-day events
-  type        String   @default("OTHER")
-  attachments String? // JSON array of attachment objects
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  date           DateTime // start day (UTC midnight)
+  endDate        DateTime? // optional end day for multi-day events
+  type           String    @default("OTHER")
+  attachments    String? // JSON array of attachment objects
   // Audience: "ALL" or "CLASSES" (with targetClassIds = JSON array of class ids).
-  targetRole     String  @default("ALL")
+  targetRole     String    @default("ALL")
   targetClassIds String?
   // RECURRENCE: we store ONE row + a rule and expand occurrences at read time.
   // excludedDates is a JSON array of "YYYY-MM-DD" keys removed from the series
   // (used for "delete just this occurrence"). See lib/events.ts.
-  isRecurring    Boolean @default(false)
+  isRecurring    Boolean   @default(false)
   recurrenceFreq String? // WEEKLY | MONTHLY | YEARLY
   recurrenceEnd  DateTime?
   excludedDates  String?
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
+  schoolId       String
+  school         School    @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -863,13 +877,13 @@ model Holiday {
 // JSON: { breakfast: [...], lunch: [...], snack: [...] }. mealType is unused now
 // (the JSON holds all three) — kept nullable for back-compat.
 model MealCalendar {
-  id        String   @id @default(cuid())
-  date      DateTime
-  mealType  String?  // legacy, unused
-  menu      String   // JSON: { breakfast, lunch, snack }
-  type      String   @default("SCHOOL") // SCHOOL | DAYCARE
-  schoolId  String
-  school    School   @relation(fields: [schoolId], references: [id])
+  id       String   @id @default(cuid())
+  date     DateTime
+  mealType String? // legacy, unused
+  menu     String // JSON: { breakfast, lunch, snack }
+  type     String   @default("SCHOOL") // SCHOOL | DAYCARE
+  schoolId String
+  school   School   @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -886,13 +900,13 @@ model MealCalendar {
 
 // A chat group. Members are modeled with the MeetingGroupMember join table (M:N).
 model MeetingGroup {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
   createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdBy   User    @relation(fields: [createdById], references: [id])
   schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
+  school      School  @relation(fields: [schoolId], references: [id])
 
   members  MeetingGroupMember[]
   messages MeetingMessage[]
@@ -1006,23 +1020,23 @@ model GalleryImage {
 
 // A video: either an external link (YouTube/Vimeo) or a direct upload.
 model Video {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   title          String
   description    String?
-  source         String   @default("YOUTUBE") // YOUTUBE | VIMEO | UPLOAD
+  source         String  @default("YOUTUBE") // YOUTUBE | VIMEO | UPLOAD
   videoUrl       String // external URL or stored file URL
   embedUrl       String? // iframe src for external videos
   thumbnailUrl   String?
   duration       String?
   category       String?
-  viewCount      Int      @default(0)
+  viewCount      Int     @default(0)
   // Audience: ALL, or CLASSES with targetClassIds = JSON array of class ids.
-  targetRole     String   @default("ALL")
+  targetRole     String  @default("ALL")
   targetClassIds String?
   uploadedById   String
-  uploadedBy     User     @relation(fields: [uploadedById], references: [id])
+  uploadedBy     User    @relation(fields: [uploadedById], references: [id])
   schoolId       String
-  school         School   @relation(fields: [schoolId], references: [id])
+  school         School  @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1037,22 +1051,31 @@ model Video {
 
 // The HR profile for a staff User (1:1). userId is unique to enforce one-to-one.
 model StaffMember {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  designation   String?
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  designation   String? // Principal | Teacher | Admin | Librarian | Counselor | Other
   department    String?
+  employeeId    String?
   joiningDate   DateTime?
   qualification String?
   experience    String?
-  salary        Float?
+  photo         String?
+  dateOfBirth   DateTime?
+  gender        String?
+  address       String?
+  phone         String?
+  status        String    @default("ACTIVE") // ACTIVE | ON_LEAVE | RESIGNED
+  salary        Float? // principal-only
+  allowances    Float? // principal-only
   schoolId      String
-  school        School   @relation(fields: [schoolId], references: [id])
+  school        School    @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([schoolId])
+  @@index([status])
 }
 
 // ----------------------------------------------------------------------------
@@ -1061,18 +1084,25 @@ model StaffMember {
 
 // A scheduled online class. status: SCHEDULED | LIVE | COMPLETED.
 model VirtualClassroom {
-  id          String   @id @default(cuid())
-  title       String
-  meetingLink String
-  classId     String
-  class       Class    @relation(fields: [classId], references: [id])
-  scheduledAt DateTime
-  duration    Int?     // minutes
-  hostId      String
-  host        User     @relation(fields: [hostId], references: [id])
-  status      String   @default("SCHEDULED")
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  meetingLink  String
+  recordingUrl String? // added after the session
+  classId      String
+  class        Class    @relation(fields: [classId], references: [id])
+  sectionId    String?
+  section      Section? @relation(fields: [sectionId], references: [id])
+  subjectId    String?
+  subject      Subject? @relation(fields: [subjectId], references: [id])
+  scheduledAt  DateTime
+  duration     Int? // minutes
+  hostId       String
+  host         User     @relation(fields: [hostId], references: [id])
+  // status is computed live from time, but we persist a baseline / COMPLETED flag.
+  status       String   @default("SCHEDULED")
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1085,21 +1115,75 @@ model VirtualClassroom {
 }
 
 // ----------------------------------------------------------------------------
+// TIMETABLE (relational, not JSON — enables conflict detection + teacher views)
+// ----------------------------------------------------------------------------
+
+// The school-wide period structure (bell schedule). Separated from the actual
+// timetable so changing bell timings mid-year is a SINGLE edit here, leaving all
+// TimetableEntry rows (which reference periodNumber) untouched.
+model PeriodTemplate {
+  id           String @id @default(cuid())
+  periodNumber Int
+  label        String
+  startTime    String // "09:00"
+  endTime      String // "09:45"
+  type         String @default("CLASS") // CLASS | BREAK | ASSEMBLY
+  schoolId     String
+  school       School @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, periodNumber])
+  @@index([schoolId])
+}
+
+// One row per (class, section, day, period). One row per slot — so a conflict
+// check is a single indexed lookup, not parsing a JSON blob.
+model TimetableEntry {
+  id             String       @id @default(cuid())
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id])
+  sectionId      String
+  section        Section      @relation(fields: [sectionId], references: [id])
+  dayOfWeek      String // MON | TUE | WED | THU | FRI | SAT
+  periodNumber   Int
+  subjectId      String?
+  subject        Subject?     @relation(fields: [subjectId], references: [id])
+  teacherId      String?
+  teacher        User?        @relation("TeacherTimetable", fields: [teacherId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Prevents double-booking the same slot for a class/section in a year.
+  @@unique([classId, sectionId, dayOfWeek, periodNumber, academicYearId])
+  // Fast conflict detection: "is this teacher already at this day+period?"
+  @@index([teacherId, dayOfWeek, periodNumber])
+  @@index([schoolId])
+  @@index([classId, sectionId])
+}
+
+// ----------------------------------------------------------------------------
 // VISITORS
 // ----------------------------------------------------------------------------
 
 // Front-desk visitor log.
 model VisitorRegister {
-  id            String    @id @default(cuid())
-  name          String
-  phone         String?
-  purpose       String?
-  visitingWhom  String?
-  checkInTime   DateTime  @default(now())
-  checkOutTime  DateTime?
-  idProof       String?
-  schoolId      String
-  school        School    @relation(fields: [schoolId], references: [id])
+  id           String    @id @default(cuid())
+  name         String
+  phone        String?
+  purpose      String?
+  visitingWhom String?
+  checkInTime  DateTime  @default(now())
+  checkOutTime DateTime?
+  idProof      String?
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1114,17 +1198,17 @@ model VisitorRegister {
 
 // A teacher planner. type: LESSON_PLAN | ACTIVITY | OTHER.
 model Planner {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
-  type        String   @default("OTHER")
+  type        String  @default("OTHER")
   fileUrl     String?
   classId     String?
-  class       Class?   @relation(fields: [classId], references: [id])
+  class       Class?  @relation(fields: [classId], references: [id])
   createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdBy   User    @relation(fields: [createdById], references: [id])
   schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
+  school      School  @relation(fields: [schoolId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

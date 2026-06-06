@@ -48,6 +48,12 @@ export const authOptions: NextAuthOptions = {
         const passwordValid = await bcrypt.compare(password, user.password);
         if (!passwordValid) return null;
 
+        // 3b. Deactivated accounts cannot log in. This is what makes "soft
+        //     deactivation" a real security boundary: a resigned teacher's row
+        //     (and all their historical references) is kept, but isActive=false
+        //     blocks the login here. Without this check, deactivation is cosmetic.
+        if (!user.isActive) return null;
+
         // 4. Safety net: ensure the stored role is one we recognize.
         const role = isRole(user.role) ? user.role : ROLES.PARENT;
 

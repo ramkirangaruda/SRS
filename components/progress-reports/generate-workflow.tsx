@@ -34,7 +34,10 @@ export function GenerateWorkflow({ classes, years, onGenerated }: { classes: Cla
   }
 
   function setEdit(id: string, field: string, value: string) {
-    setEdits((p) => ({ ...p, [id]: { remarks: "", coCurricular: "", conduct: "", ...p[id], [field]: value } }));
+    setEdits((p) => {
+      const cur = p[id] ?? { remarks: "", coCurricular: "", conduct: "" };
+      return { ...p, [id]: { ...cur, [field]: value } };
+    });
   }
 
   async function generate() {

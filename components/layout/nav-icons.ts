@@ -22,6 +22,8 @@ import {
   Library,
   FileBarChart2,
   Award,
+  CalendarClock,
+  MonitorPlay,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/nav";
@@ -49,4 +51,6 @@ export const NAV_ICONS: Record<IconName, LucideIcon> = {
   elearning: Library,
   testreports: FileBarChart2,
   reports: Award,
+  timetable: CalendarClock,
+  virtualclassroom: MonitorPlay,
 };

@@ -91,9 +91,12 @@ export async function listReports(schoolId: string, opts: { classId?: string; te
   const clean = (v?: string) => (v && v.trim() !== "" ? v : undefined);
   const rows = await prisma.progressReport.findMany({
     where: { schoolId, ...(clean(opts.classId) ? { classId: opts.classId } : {}), ...(clean(opts.term) ? { term: opts.term } : {}), ...(clean(opts.academicYearId) ? { academicYearId: opts.academicYearId } : {}), ...(clean(opts.status) ? { status: opts.status } : {}) },
-    include: { student: { select: { id: true, name: true, admissionNumber: true } }, class: { select: { name: true } } },
+    include: { student: { select: { id: true, name: true, admissionNumber: true } } },
     orderBy: [{ term: "asc" }, { rank: "asc" }],
   });
+  // className via a small id→name map (ProgressReport has classId but no relation).
+  const classIds = Array.from(new Set(rows.map((r) => r.classId).filter((x): x is string => !!x)));
+  const classNameBy = new Map((await prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
   // Staleness in ONE extra query: latest TestReport.updatedAt per student, then
   // compare each report's generatedAt against it (instead of N per-row queries).
   const studentIds = Array.from(new Set(rows.map((r) => r.student.id)));
@@ -102,7 +105,7 @@ export async function listReports(schoolId: string, opts: { classId?: string; te
   return rows.map((r) => {
     const lt = latestBy.get(r.student.id);
     const stale = !!(r.generatedAt && lt && lt > r.generatedAt);
-    return { id: r.id, studentName: r.student.name, admissionNumber: r.student.admissionNumber, className: r.class?.name ?? null, term: r.term, overallGrade: r.overallGrade, rank: r.rank, status: r.status, generatedAt: r.generatedAt?.toISOString() ?? null, stale };
+    return { id: r.id, studentName: r.student.name, admissionNumber: r.student.admissionNumber, className: r.classId ? classNameBy.get(r.classId) ?? null : null, term: r.term, overallGrade: r.overallGrade, rank: r.rank, status: r.status, generatedAt: r.generatedAt?.toISOString() ?? null, stale };
   });
 }
 

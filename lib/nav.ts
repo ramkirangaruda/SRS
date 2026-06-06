@@ -31,7 +31,9 @@ export type IconName =
   | "videos"
   | "elearning"
   | "testreports"
-  | "reports";
+  | "reports"
+  | "timetable"
+  | "virtualclassroom";
 
 export type NavItem = {
   label: string;
@@ -58,12 +60,16 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "E-Learning", href: "/principal/elearning", icon: "elearning" },
     { label: "Test Reports", href: "/principal/test-reports", icon: "testreports" },
     { label: "Progress Reports", href: "/principal/progress-reports", icon: "reports" },
-    { label: "Staff", href: "/dashboard/principal/staff", icon: "staff" },
+    { label: "Timetable", href: "/principal/timetable", icon: "timetable" },
+    { label: "Virtual Classroom", href: "/principal/virtual-classroom", icon: "virtualclassroom" },
+    { label: "Staff", href: "/principal/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
   [ROLES.TEACHER]: [
     { label: "Dashboard", href: "/dashboard/teacher", icon: "dashboard" },
     { label: "Students", href: "/dashboard/teacher/students", icon: "students" },
+    { label: "My Timetable", href: "/dashboard/teacher/timetable", icon: "timetable" },
+    { label: "Virtual Classroom", href: "/dashboard/teacher/virtual-classroom", icon: "virtualclassroom" },
     { label: "Settings", href: "/dashboard/teacher/settings", icon: "settings" },
   ],
   [ROLES.PARENT]: [
@@ -83,6 +89,9 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Learning", href: "/parent/elearning", icon: "elearning" },
     { label: "Test Reports", href: "/parent/test-reports", icon: "testreports" },
     { label: "Report Cards", href: "/parent/progress-reports", icon: "reports" },
+    { label: "Timetable", href: "/parent/timetable", icon: "timetable" },
+    { label: "Virtual Classroom", href: "/parent/virtual-classroom", icon: "virtualclassroom" },
+    { label: "Teachers", href: "/parent/staff", icon: "staff" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],
 };

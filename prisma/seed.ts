@@ -38,6 +38,11 @@ async function main() {
   await prisma.attendance.deleteMany();
   await prisma.feePayment.deleteMany();
   await prisma.feeStructure.deleteMany();
+  // Phase 12: timetable + virtual classroom + staff reference class/user/year.
+  await prisma.timetableEntry.deleteMany();
+  await prisma.periodTemplate.deleteMany();
+  await prisma.virtualClassroom.deleteMany();
+  await prisma.staffMember.deleteMany();
   await prisma.subject.deleteMany();
   await prisma.student.deleteMany();
   await prisma.section.deleteMany();
@@ -246,6 +251,62 @@ async function main() {
   }
   await prisma.testReport.createMany({
     data: tr.map((t) => ({ studentId: t.studentId, subjectId: t.subjectId, classId: t.classId, sectionId: t.sectionId, testName: t.testName, date: t.date, totalMarks: t.total, obtainedMarks: t.obtained, percentage: (t.obtained / t.total) * 100, grade: gradeFor((t.obtained / t.total) * 100), schoolId: school.id })),
+  });
+
+  // 13. STAFF — make the demo teacher a StaffMember, and add two more teachers
+  //     (one will be used to demonstrate a timetable conflict). Each teacher is a
+  //     User(TEACHER) + a StaffMember row, mirroring how the add-staff form works.
+  await prisma.staffMember.create({
+    data: { userId: teacher.id, designation: "Teacher", department: "Primary", employeeId: "EMP-001", joiningDate: new Date("2022-06-01"), qualification: "B.Ed", experience: "5 years", phone: teacher.phone, gender: "MALE", status: "ACTIVE", salary: 35000, schoolId: school.id },
+  });
+  const teacher2 = await prisma.user.create({
+    data: { name: "Ms. Grace Hopper", email: "grace@school.edu", password: passwordHash, phone: "+91-555-0105", role: ROLES.TEACHER, schoolId: school.id,
+      staffMember: { create: { designation: "Teacher", department: "Science", employeeId: "EMP-002", joiningDate: new Date("2021-04-01"), qualification: "M.Sc, B.Ed", experience: "8 years", gender: "FEMALE", status: "ACTIVE", salary: 42000, schoolId: school.id } } },
+  });
+  const teacher3 = await prisma.user.create({
+    data: { name: "Mr. Raj Kumar", email: "raj@school.edu", password: passwordHash, phone: "+91-555-0106", role: ROLES.TEACHER, schoolId: school.id,
+      staffMember: { create: { designation: "Teacher", department: "Languages", employeeId: "EMP-003", joiningDate: new Date("2023-06-01"), qualification: "M.A English", experience: "3 years", gender: "MALE", status: "ACTIVE", salary: 32000, schoolId: school.id } } },
+  });
+
+  // 14. PERIOD TEMPLATES — the bell schedule (shared by all classes). Two CLASS
+  //     periods, a BREAK, then two more — enough to build a timetable against.
+  const periodDefs = [
+    { periodNumber: 1, label: "Period 1", startTime: "09:00", endTime: "09:45", type: "CLASS" },
+    { periodNumber: 2, label: "Period 2", startTime: "09:45", endTime: "10:30", type: "CLASS" },
+    { periodNumber: 3, label: "Short Break", startTime: "10:30", endTime: "10:45", type: "BREAK" },
+    { periodNumber: 4, label: "Period 3", startTime: "10:45", endTime: "11:30", type: "CLASS" },
+    { periodNumber: 5, label: "Period 4", startTime: "11:30", endTime: "12:15", type: "CLASS" },
+  ];
+  await prisma.periodTemplate.createMany({ data: periodDefs.map((p) => ({ ...p, schoolId: school.id })) });
+
+  // 15. TIMETABLE — fill class 1st / section A for a couple of days. We map each
+  //     CLASS period to a subject + a teacher. (BREAK periods get no entry.)
+  const subById = await prisma.subject.findMany({ where: { classId: class1.id }, select: { id: true, name: true } });
+  const subjByName = Object.fromEntries(subById.map((s) => [s.name, s.id]));
+  const ttRows = [
+    { day: "MON", period: 1, subject: "English", teacherId: teacher3.id },
+    { day: "MON", period: 2, subject: "Mathematics", teacherId: teacher.id },
+    { day: "MON", period: 4, subject: "Science", teacherId: teacher2.id },
+    { day: "MON", period: 5, subject: "English", teacherId: teacher3.id },
+    { day: "TUE", period: 1, subject: "Mathematics", teacherId: teacher.id },
+    { day: "TUE", period: 2, subject: "Science", teacherId: teacher2.id },
+    { day: "TUE", period: 4, subject: "English", teacherId: teacher3.id },
+    { day: "WED", period: 1, subject: "Science", teacherId: teacher2.id },
+    { day: "WED", period: 2, subject: "English", teacherId: teacher3.id },
+  ];
+  await prisma.timetableEntry.createMany({
+    data: ttRows.map((r) => ({ classId: class1.id, sectionId: sec1A.id, dayOfWeek: r.day, periodNumber: r.period, subjectId: subjByName[r.subject], teacherId: r.teacherId, academicYearId: academicYear.id, schoolId: school.id })),
+  });
+
+  // 16. VIRTUAL CLASSROOMS — one already past (with a recording), one happening
+  //     "now" (live), one upcoming. scheduledAt is relative so demos stay fresh.
+  const hourFromNow = (h: number) => new Date(Date.now() + h * 60 * 60 * 1000);
+  await prisma.virtualClassroom.createMany({
+    data: [
+      { title: "Maths: Addition Recap", description: "Recorded session on carrying.", meetingLink: "https://meet.google.com/abc-defg-hij", recordingUrl: "https://drive.google.com/file/d/demo/view", classId: class1.id, sectionId: sec1A.id, subjectId: subjByName["Mathematics"], scheduledAt: hourFromNow(-26), duration: 45, hostId: teacher.id, status: "COMPLETED", schoolId: school.id },
+      { title: "Science: The Water Cycle", description: "Live now — join in!", meetingLink: "https://zoom.us/j/1234567890", classId: class1.id, sectionId: sec1A.id, subjectId: subjByName["Science"], scheduledAt: hourFromNow(-0.2), duration: 45, hostId: teacher2.id, status: "SCHEDULED", schoolId: school.id },
+      { title: "English: Story Time", description: "Reading aloud session.", meetingLink: "https://meet.google.com/xyz-uvwx-yz", classId: class1.id, sectionId: sec1A.id, subjectId: subjByName["English"], scheduledAt: hourFromNow(3), duration: 45, hostId: teacher3.id, status: "SCHEDULED", schoolId: school.id },
+    ],
   });
 
   console.log("Seed complete:");

@@ -266,10 +266,12 @@ export async function getParentHomeworkDetail(id: string, parentId: string, scho
   return match ? toItem(h) : null;
 }
 
-// Staff who can be "assigned by" (for the filter dropdown).
+// Staff who can be "assigned by" (for the filter dropdown). Active users only —
+// deactivated teachers are kept out of NEW dropdowns, but homework they already
+// assigned still displays their name (the Homework→assignedBy relation is intact).
 export async function listAssigners(schoolId: string) {
   return prisma.user.findMany({
-    where: { schoolId, role: { in: ["PRINCIPAL", "TEACHER"] } },
+    where: { schoolId, isActive: true, role: { in: ["PRINCIPAL", "TEACHER"] } },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
