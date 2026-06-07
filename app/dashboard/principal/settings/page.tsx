@@ -1,12 +1,22 @@
-// Principal Settings (placeholder). School profile, academic year, and account
-// settings will live here in a later phase.
-import { ComingSoon } from "@/components/layout/coming-soon";
+// Principal Settings — all 10 sections (the SettingsView gates by role).
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { SettingsView } from "@/components/settings/settings-view";
 
-export default function PrincipalSettingsPage() {
+export default async function PrincipalSettingsPage() {
+  const session = await getServerSession(authOptions);
+  const [user, school] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session!.user.id }, select: { locale: true } }),
+    prisma.school.findUnique({ where: { id: session!.user.schoolId }, select: { name: true } }),
+  ]);
   return (
-    <ComingSoon
-      title="Settings"
-      description="School profile, academic year, and account settings will appear here."
-    />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <p className="text-muted-foreground">Manage your school, account, and preferences.</p>
+      </div>
+      <SettingsView role={session!.user.role} locale={user?.locale ?? "en"} schoolName={school?.name ?? "School"} />
+    </div>
   );
 }

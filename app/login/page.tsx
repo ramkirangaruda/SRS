@@ -23,6 +23,13 @@ export default function LoginPage() {
   // intended destination in a `callbackUrl` query param. We honor it after login.
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  // If the user landed here after a password change / session expiry, explain why.
+  const reason = searchParams.get("reason");
+  const reasonMessage = reason === "password-changed"
+    ? "Your password was changed. Please log in again."
+    : reason === "session-expired"
+      ? "Your session expired. Please log in again."
+      : null;
 
   // Local form state — controlled inputs keep React as the source of truth.
   const [email, setEmail] = useState("");
@@ -67,6 +74,10 @@ export default function LoginPage() {
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Why the user was sent back to login (password change / expiry). */}
+          {reasonMessage && (
+            <p className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">{reasonMessage}</p>
+          )}
           {/* noValidate: we rely on our own validation + server checks. */}
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
@@ -114,6 +125,13 @@ export default function LoginPage() {
             <p className="font-medium text-foreground">Demo accounts (from seed):</p>
             <p>Principal — principal@school.edu / password123</p>
             <p>Parent — parent@school.edu / password123</p>
+          </div>
+
+          {/* Public legal links — required to be reachable without logging in. */}
+          <div className="mt-4 text-center text-xs text-muted-foreground">
+            <a href="/settings/privacy-policy" className="hover:underline">Privacy Policy</a>
+            <span className="mx-2">·</span>
+            <a href="/settings/terms" className="hover:underline">Terms of Service</a>
           </div>
         </CardContent>
       </Card>

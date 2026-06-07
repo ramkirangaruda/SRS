@@ -39,44 +39,57 @@ model School {
   activeAcademicYear        String? // Convenience label, e.g. "2025-2026".
   showRankToParents         Boolean @default(false) // whether parents see class rank
   showStaffContactToParents Boolean @default(false) // parents see staff phone/email
+  // Profile (settings → school profile).
+  website                   String?
+  establishedYear           String?
+  board                     String? // CBSE | ICSE | STATE | IB | OTHER
+  schoolCode                String? // UDISE / school code
+  // Invite code parents enter at signup to join this school (settings → share).
+  inviteCode                String? @unique
+  // Editable legal content (settings → privacy/terms). Plain text/markdown.
+  privacyPolicy             String?
+  termsOfService            String?
 
   // Back-relations: one School has many of nearly everything. These let us write
   // queries like `prisma.school.findFirst({ include: { students: true } })`.
-  users               User[]
-  students            Student[]
-  classes             Class[]
-  academicYears       AcademicYear[]
-  admissionQueries    AdmissionQuery[]
-  enquiries           Enquiry[]
-  enquiryCategories   EnquiryCategory[]
-  broadcastMessages   BroadcastMessage[]
-  feedbacks           Feedback[]
-  schoolDiaries       SchoolDiary[]
-  feeStructures       FeeStructure[]
-  feePayments         FeePayment[]
-  homeworks           Homework[]
-  subjects            Subject[]
-  curriculums         Curriculum[]
-  timetables          Timetable[]
-  testReports         TestReport[]
-  progressReports     ProgressReport[]
-  eLearningCategories ELearningCategory[]
-  tutorials           Tutorial[]
-  assignments         Assignment[]
-  events              Event[]
-  holidays            Holiday[]
-  mealCalendars       MealCalendar[]
-  meetingGroups       MeetingGroup[]
-  daycareLogs         DaycareLog[]
-  galleryAlbums       GalleryAlbum[]
-  videos              Video[]
-  staffMembers        StaffMember[]
-  virtualClassrooms   VirtualClassroom[]
-  visitorRegisters    VisitorRegister[]
-  planners            Planner[]
-  resources           Resource[]
-  periodTemplates     PeriodTemplate[]
-  timetableEntries    TimetableEntry[]
+  users                   User[]
+  students                Student[]
+  classes                 Class[]
+  academicYears           AcademicYear[]
+  admissionQueries        AdmissionQuery[]
+  enquiries               Enquiry[]
+  enquiryCategories       EnquiryCategory[]
+  broadcastMessages       BroadcastMessage[]
+  feedbacks               Feedback[]
+  schoolDiaries           SchoolDiary[]
+  feeStructures           FeeStructure[]
+  feePayments             FeePayment[]
+  homeworks               Homework[]
+  subjects                Subject[]
+  curriculums             Curriculum[]
+  timetables              Timetable[]
+  testReports             TestReport[]
+  progressReports         ProgressReport[]
+  eLearningCategories     ELearningCategory[]
+  tutorials               Tutorial[]
+  assignments             Assignment[]
+  events                  Event[]
+  holidays                Holiday[]
+  mealCalendars           MealCalendar[]
+  meetingGroups           MeetingGroup[]
+  daycareLogs             DaycareLog[]
+  galleryAlbums           GalleryAlbum[]
+  videos                  Video[]
+  staffMembers            StaffMember[]
+  virtualClassrooms       VirtualClassroom[]
+  visitorRegisters        VisitorRegister[]
+  planners                Planner[]
+  resources               Resource[]
+  periodTemplates         PeriodTemplate[]
+  timetableEntries        TimetableEntry[]
+  notificationPreferences NotificationPreference[]
+  bugReports              BugReport[]
+  supportMessages         SupportMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -85,17 +98,23 @@ model School {
 // Anyone who can log in. role is "PRINCIPAL" | "TEACHER" | "PARENT" (validated in
 // lib/roles.ts). We store passwordHash (bcrypt), never plaintext.
 model User {
-  id       String  @id @default(cuid())
-  name     String
-  email    String  @unique
-  password String // bcrypt hash. Named per spec; treat as the hash.
-  phone    String?
-  role     String  @default("PARENT")
-  avatar   String?
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  password          String // bcrypt hash. Named per spec; treat as the hash.
+  phone             String?
+  role              String    @default("PARENT")
+  avatar            String?
   // Soft on/off switch. Deactivating a teacher (e.g. resigned) flips this to
   // false so they can't log in, WITHOUT deleting the user — preserving all the
   // historical rows (timetable, homework, virtual classes) that reference them.
-  isActive Boolean @default(true)
+  isActive          Boolean   @default(true)
+  // i18n preference (settings → language). UI locale, e.g. "en" | "hi".
+  locale            String    @default("en")
+  // Session-invalidation marker: any JWT issued before this instant is rejected
+  // (see lib/auth.ts). Updating it on password change logs out other devices.
+  passwordChangedAt DateTime?
+  lastLoginAt       DateTime? // for the "active users" share stats
 
   schoolId String
   school   School @relation(fields: [schoolId], references: [id])
@@ -109,8 +128,8 @@ model User {
   broadcastMessages       BroadcastMessage[]
   broadcastReceipts       BroadcastRecipient[]
   diaryReads              DiaryRead[]
-  feedbacksGiven          Feedback[]           @relation("FeedbackParent")
-  feedbacksReplied        Feedback[]           @relation("FeedbackRepliedBy")
+  feedbacksGiven          Feedback[]               @relation("FeedbackParent")
+  feedbacksReplied        Feedback[]               @relation("FeedbackRepliedBy")
   feedbackMessages        FeedbackMessage[]
   schoolDiaries           SchoolDiary[]
   feePaymentsCollected    FeePayment[]
@@ -126,11 +145,14 @@ model User {
   virtualClassroomsHosted VirtualClassroom[]
   plannersCreated         Planner[]
   resourcesUploaded       Resource[]
-  timetableEntries        TimetableEntry[]     @relation("TeacherTimetable")
-  visitorsHosted          VisitorRegister[]    @relation("VisitorHost")
+  timetableEntries        TimetableEntry[]         @relation("TeacherTimetable")
+  visitorsHosted          VisitorRegister[]        @relation("VisitorHost")
   enquiryActivities       EnquiryActivity[]
   admissionActivities     AdmissionActivity[]
-  admissionsProcessed     AdmissionQuery[]     @relation("AdmissionProcessor")
+  admissionsProcessed     AdmissionQuery[]         @relation("AdmissionProcessor")
+  notificationPreferences NotificationPreference[]
+  bugReports              BugReport[]
+  supportMessages         SupportMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1406,4 +1428,59 @@ model Resource {
   @@index([uploadedById])
   @@index([type])
   @@index([isPublic])
+}
+
+// ----------------------------------------------------------------------------
+// SETTINGS — notification prefs, bug reports, support messages (Phase 15)
+// ----------------------------------------------------------------------------
+
+// Per-user, per-category notification toggle. Absence of a row = default ON, so
+// we only store explicit opt-outs/opt-ins. Checked at SEND time before queuing a
+// notification (see lib/notify.ts) so we never even create unwanted ones.
+model NotificationPreference {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type     String // BROADCAST | HOMEWORK | FEES | ATTENDANCE | EVENTS | DIARY
+  enabled  Boolean @default(true)
+  schoolId String
+  school   School  @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+// A bug report from the support section, with auto-collected device info.
+model BugReport {
+  id           String  @id @default(cuid())
+  description  String
+  deviceInfo   String? // JSON: { userAgent, platform, screen, language }
+  screenshot   String? // optional uploaded image URL
+  reportedById String
+  reportedBy   User    @relation(fields: [reportedById], references: [id])
+  status       String  @default("OPEN") // OPEN | RESOLVED
+  schoolId     String
+  school       School  @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+}
+
+// A technical-support contact message.
+model SupportMessage {
+  id       String @id @default(cuid())
+  subject  String
+  message  String
+  sentById String
+  sentBy   User   @relation(fields: [sentById], references: [id])
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
 }

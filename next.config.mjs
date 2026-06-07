@@ -4,6 +4,10 @@
 // @ducanh2912/next-pwa plugin generates a service worker (a background script
 // the browser runs) that caches our assets so the app loads without a network.
 import withPWAInit from "@ducanh2912/next-pwa";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// Points next-intl at our request config (cookie-based locale).
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const withPWA = withPWAInit({
   dest: "public", // Where the generated service worker files are written.
@@ -19,4 +23,4 @@ const nextConfig = {
   reactStrictMode: true, // Surfaces potential bugs by double-invoking render in dev.
 };
 
-export default withPWA(nextConfig);
+export default withPWA(withNextIntl(nextConfig));

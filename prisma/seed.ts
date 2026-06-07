@@ -58,6 +58,10 @@ async function main() {
   await prisma.admissionQuery.deleteMany();
   await prisma.enquiryCategory.deleteMany();
   await prisma.visitorRegister.deleteMany();
+  // Phase 15: settings.
+  await prisma.notificationPreference.deleteMany();
+  await prisma.bugReport.deleteMany();
+  await prisma.supportMessage.deleteMany();
   // Phase 12: timetable + virtual classroom + staff reference class/user/year.
   await prisma.timetableEntry.deleteMany();
   await prisma.periodTemplate.deleteMany();
@@ -80,7 +84,17 @@ async function main() {
       email: "office@springfield.edu",
       activeAcademicYear: "2025-2026",
       showRankToParents: true,
+      website: "https://springfield.edu",
+      establishedYear: "1998",
+      board: "CBSE",
+      schoolCode: "UDISE-29010100123",
+      inviteCode: "SCH-SPRG-2026",
     },
+  });
+
+  // A PAST academic year (inactive) so the year-switcher has something to show.
+  await prisma.academicYear.create({
+    data: { name: "2024-2025", startDate: new Date("2024-06-01"), endDate: new Date("2025-04-30"), isActive: false, schoolId: school.id },
   });
 
   // 3. ACADEMIC YEAR — the active year, referenced by fees and progress reports.

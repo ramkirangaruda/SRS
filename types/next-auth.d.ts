@@ -26,9 +26,12 @@ declare module "next-auth" {
 }
 
 declare module "next-auth/jwt" {
+  // Fields are optional so an invalidated token can be represented as `{}`
+  // (see the jwt callback in lib/auth.ts).
   interface JWT {
-    id: string;
-    role: string;
-    schoolId: string;
+    id?: string;
+    role?: string;
+    schoolId?: string;
+    loginAt?: number; // ms epoch when this token was issued
   }
 }

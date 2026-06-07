@@ -169,7 +169,18 @@ export async function createBroadcast(input: BroadcastCreateInput, schoolId: str
       });
     }
 
-    // (Push notification would fire here — see the concept note. No-op for now.)
+    // NOTIFICATION PREFERENCES (send-time filtering): the in-app inbox row above
+    // is created for EVERYONE so the message is always available in the app. But a
+    // PUSH notification only goes to users who haven't turned BROADCAST alerts off.
+    // We resolve that set HERE, at send time (one query for the opt-outs), rather
+    // than building push payloads for all and discarding them at delivery time —
+    // cheaper, and we never construct a notification the user declined.
+    const optedOut = new Set(
+      (await tx.notificationPreference.findMany({ where: { userId: { in: userIds }, type: "BROADCAST", enabled: false }, select: { userId: true } })).map((o) => o.userId)
+    );
+    const pushUserIds = userIds.filter((u) => !optedOut.has(u));
+    // (Push notification would fire here, only to pushUserIds. No-op for now.)
+    void pushUserIds;
     return { id: broadcast.id, count: userIds.length };
   });
 }

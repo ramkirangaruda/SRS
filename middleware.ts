@@ -55,8 +55,9 @@ export default withAuth(
     callbacks: {
       // This runs FIRST. Returning false means "not logged in" → NextAuth
       // automatically redirects to our /login page (configured just above).
-      // Returning true means "logged in" → the middleware function above runs.
-      authorized: ({ token }) => !!token,
+      // We require token.id: an invalidated session (post password-change /
+      // deactivation) is re-encoded to an empty token with no id.
+      authorized: ({ token }) => !!token?.id,
     },
   }
 );
