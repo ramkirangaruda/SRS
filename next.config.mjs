@@ -16,6 +16,14 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development",
   register: true, // Auto-register the service worker on page load.
   cacheOnFrontEndNav: true, // Cache pages as the user navigates, for offline use.
+  // When a navigation can't be served (offline + not cached), show /offline.
+  fallbacks: { document: "/offline" },
+  // Our push/notificationclick handlers (worker/index.js) are merged in here.
+  // next-pwa's default runtime caching already applies sensible strategies:
+  //   • JS/CSS/fonts/images → CacheFirst (fast, rarely change)
+  //   • same-origin pages   → NetworkFirst (fresh when online, cached offline)
+  //   • API GETs            → NetworkFirst with a short timeout → cache fallback
+  // so e.g. opening Attendance offline serves the last-synced response.
 });
 
 /** @type {import('next').NextConfig} */

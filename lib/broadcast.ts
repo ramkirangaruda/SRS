@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { ROLES } from "@/lib/roles";
 import { parseAttachments } from "@/lib/homework-format";
 import { encodeCursor, cursorWhere } from "@/lib/cursor";
+import { sendToMany } from "@/lib/push";
+import { logActivity } from "@/lib/activity";
 import type { StoredFile } from "@/lib/upload-constants";
 import type { BroadcastCreateInput, AudienceInput } from "@/lib/validations/broadcast";
 
@@ -146,7 +148,7 @@ export async function getBroadcastById(id: string, schoolId: string) {
 export async function createBroadcast(input: BroadcastCreateInput, schoolId: string, sentById: string) {
   const { userIds, label } = await resolveAudience(schoolId, input.targetRole, input.classes);
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const broadcast = await tx.broadcastMessage.create({
       data: {
         title: input.title,
@@ -168,21 +170,18 @@ export async function createBroadcast(input: BroadcastCreateInput, schoolId: str
         // skip if somehow a (broadcast,user) row already exists.
       });
     }
-
-    // NOTIFICATION PREFERENCES (send-time filtering): the in-app inbox row above
-    // is created for EVERYONE so the message is always available in the app. But a
-    // PUSH notification only goes to users who haven't turned BROADCAST alerts off.
-    // We resolve that set HERE, at send time (one query for the opt-outs), rather
-    // than building push payloads for all and discarding them at delivery time —
-    // cheaper, and we never construct a notification the user declined.
-    const optedOut = new Set(
-      (await tx.notificationPreference.findMany({ where: { userId: { in: userIds }, type: "BROADCAST", enabled: false }, select: { userId: true } })).map((o) => o.userId)
-    );
-    const pushUserIds = userIds.filter((u) => !optedOut.has(u));
-    // (Push notification would fire here, only to pushUserIds. No-op for now.)
-    void pushUserIds;
     return { id: broadcast.id, count: userIds.length };
   });
+
+  // PUSH happens AFTER the transaction commits — it's network I/O (web-push) and
+  // must not hold a DB transaction open or roll back the broadcast if a push
+  // fails. sendPushNotification itself checks each user's BROADCAST preference
+  // (send-time filtering) and writes the in-app Notification row, so the inbox
+  // (BroadcastRecipient, created for everyone above) and the bell/push (pref-gated)
+  // stay correctly separate. Fire-and-forget.
+  void sendToMany(userIds, { title: input.title, body: input.message, url: "/parent/messages", type: "BROADCAST" });
+  void logActivity({ schoolId, performedById: sentById, action: "BROADCAST_SENT", description: `Broadcast sent: ${input.title}`, entityType: "BroadcastMessage", entityId: result.id });
+  return result;
 }
 
 export async function softDeleteBroadcast(id: string, schoolId: string) {

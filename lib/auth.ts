@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isRole, ROLES } from "@/lib/roles";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Validate the shape of what the login form sends BEFORE touching the database.
 // zod gives us a runtime guarantee that email/password are present and valid.
@@ -37,6 +38,10 @@ export const authOptions: NextAuthOptions = {
         const parsed = credentialsSchema.safeParse(rawCredentials);
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
+
+        // Rate-limit login attempts per email (brute-force protection): max 5 per
+        // minute. Over the limit → reject regardless of correctness.
+        if (!rateLimit(`login:${email.toLowerCase()}`, 5, 60_000).ok) return null;
 
         // 2. Look up the user by their unique email.
         const user = await prisma.user.findUnique({ where: { email } });

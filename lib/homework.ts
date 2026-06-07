@@ -2,6 +2,7 @@
 // children for the parent functions). Attachments are stored as a JSON string in
 // the `attachments` column; we parse/serialize them here.
 import { prisma } from "@/lib/prisma";
+import { sendToMany } from "@/lib/push";
 import { parseAttachments } from "@/lib/homework-format";
 import { deleteUploadedFile } from "@/lib/upload";
 import type { StoredFile } from "@/lib/upload-constants";
@@ -136,7 +137,23 @@ export async function createHomework(input: HomeworkCreateInput, schoolId: strin
     },
     include: includeRelations,
   });
+
+  // Notify parents of the targeted class/section (HOMEWORK category, pref-gated
+  // inside sendToMany). Fire-and-forget — never block homework creation on push.
+  void notifyClassParents(schoolId, input.classId, clean(input.sectionId) ?? null, {
+    title: "New homework", body: `${h.title}${h.subject?.name ? ` · ${h.subject.name}` : ""}`, url: "/parent/homework", type: "HOMEWORK",
+  });
   return toItem(h);
+}
+
+// Parents whose child is in this class (and matching section, or whole class).
+async function notifyClassParents(schoolId: string, classId: string, sectionId: string | null, payload: { title: string; body: string; url: string; type: string }) {
+  const students = await prisma.student.findMany({
+    where: { schoolId, classId, parentId: { not: null }, ...(sectionId ? { OR: [{ sectionId }, { sectionId: null }] } : {}) },
+    select: { parentId: true },
+  });
+  const parentIds = Array.from(new Set(students.map((s) => s.parentId).filter((x): x is string => !!x)));
+  await sendToMany(parentIds, payload);
 }
 
 // UPDATE. We diff old vs new attachments and DELETE the removed files from

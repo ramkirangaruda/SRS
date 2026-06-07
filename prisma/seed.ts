@@ -62,6 +62,10 @@ async function main() {
   await prisma.notificationPreference.deleteMany();
   await prisma.bugReport.deleteMany();
   await prisma.supportMessage.deleteMany();
+  // Phase 16: dashboard + notifications.
+  await prisma.activityLog.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.pushSubscription.deleteMany();
   // Phase 12: timetable + virtual classroom + staff reference class/user/year.
   await prisma.timetableEntry.deleteMany();
   await prisma.periodTemplate.deleteMany();
@@ -461,6 +465,25 @@ async function main() {
   await prisma.admissionQuery.create({
     data: { studentName: "Isha Reddy", parentName: "Venkat Reddy", phone: "9000111003", classAppliedFor: "1st", gender: "FEMALE", source: "REFERRAL", status: "REJECTED", rejectionReason: "Class full", processedById: principal.id, processedAt: new Date(), schoolId: school.id,
       activities: { create: { activityType: "REJECTED", note: "Class full", performedById: principal.id } } },
+  });
+
+  // 23. ACTIVITY LOG — recent actions for the dashboard feed.
+  const minsAgoA = (m: number) => new Date(Date.now() - m * 60 * 1000);
+  await prisma.activityLog.createMany({
+    data: [
+      { action: "ATTENDANCE_MARKED", description: "Mr. Alan Teacher marked attendance for Class 1st-A", entityType: "Attendance", performedById: teacher.id, schoolId: school.id, createdAt: minsAgoA(8) },
+      { action: "ENQUIRY_CREATED", description: "New enquiry from Asha Verma", entityType: "Enquiry", performedById: principal.id, schoolId: school.id, createdAt: minsAgoA(35) },
+      { action: "FEE_RECORDED", description: "Fee payment of ₹6,000 received (Mia Parent)", entityType: "FeePayment", performedById: principal.id, schoolId: school.id, createdAt: minsAgoA(95) },
+      { action: "BROADCAST_SENT", description: "Broadcast sent: Welcome message", entityType: "BroadcastMessage", performedById: principal.id, schoolId: school.id, createdAt: minsAgoA(140) },
+    ],
+  });
+
+  // 24. NOTIFICATIONS — a couple of in-app notifications for the parent's bell.
+  await prisma.notification.createMany({
+    data: [
+      { userId: parent.id, title: "New homework", body: "Maths: Addition worksheet due Friday", url: "/parent/homework", type: "HOMEWORK", isRead: false, schoolId: school.id, createdAt: minsAgoA(20) },
+      { userId: parent.id, title: "Fee reminder", body: "₹6,000 pending for Mia", url: "/parent/fees", type: "FEES", isRead: true, schoolId: school.id, createdAt: minsAgoA(600) },
+    ],
   });
 
   console.log("Seed complete:");

@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { NOTIFICATION_TYPES } from "@/lib/settings";
+import { EnablePushButton } from "@/components/push/enable-push-button";
 import { cn } from "@/lib/utils";
 
 const LABELS: Record<string, string> = {
@@ -29,6 +30,10 @@ export function NotificationsSection() {
   if (!loaded) return <p className="text-sm text-muted-foreground">Loading…</p>;
   return (
     <div className="max-w-md space-y-2">
+      <div className="mb-2 rounded-md border p-3">
+        <p className="mb-2 text-sm text-muted-foreground">Turn on push to get these alerts even when the app is closed.</p>
+        <EnablePushButton />
+      </div>
       {NOTIFICATION_TYPES.map((type) => (
         <div key={type} className="flex items-center justify-between rounded-md border p-3">
           <span className="text-sm font-medium">{LABELS[type]}</span>

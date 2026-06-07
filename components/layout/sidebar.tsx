@@ -13,6 +13,7 @@ import { NAV_ICONS } from "@/components/layout/nav-icons";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { useUnread } from "@/components/unread-provider";
 import { unreadForHref, NavBadge } from "@/components/layout/nav-badge";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 type SidebarProps = {
   items: NavItem[];
@@ -26,9 +27,10 @@ export function Sidebar({ items, userName, roleLabel }: SidebarProps) {
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r bg-card md:flex print:hidden">
-      {/* Brand header */}
-      <div className="flex h-16 items-center border-b px-6">
+      {/* Brand header + notification bell */}
+      <div className="flex h-16 items-center justify-between border-b px-6">
         <span className="text-lg font-bold">SchoolSync</span>
+        <NotificationBell />
       </div>
 
       {/* Nav links */}

@@ -5,6 +5,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { percent } from "@/lib/money";
 import { statusFor, type FeeStatus } from "@/lib/fee-status";
+import { sendPushNotification } from "@/lib/push";
+import { logActivity } from "@/lib/activity";
 
 // Re-export so existing importers can keep getting FeeStatus from lib/fees.
 export type { FeeStatus };
@@ -354,7 +356,18 @@ export async function recordPayment(input: RecordPaymentInput) {
       paid: newPaid,
       pending: Math.max(0, total - newPaid),
       status: statusFor(total, newPaid),
+      studentId: input.studentId,
     };
+  }).then(async (res) => {
+    // Notify the student's parent of the payment (FEES category, pref-gated).
+    // After the transaction commits; fire-and-forget so push never blocks/rolls
+    // back the payment.
+    const child = await prisma.student.findUnique({ where: { id: res.studentId }, select: { name: true, parentId: true } });
+    if (child?.parentId) {
+      void sendPushNotification(child.parentId, { title: "Fee payment received", body: `₹${(input.amount / 100).toLocaleString("en-IN")} recorded for ${child.name}`, url: "/parent/fees", type: "FEES" });
+    }
+    void logActivity({ schoolId: input.schoolId, performedById: input.collectedById, action: "FEE_RECORDED", description: `Fee payment of ₹${(input.amount / 100).toLocaleString("en-IN")} received${child ? ` (${child.name})` : ""}`, entityType: "FeePayment" });
+    return res;
   });
 }
 

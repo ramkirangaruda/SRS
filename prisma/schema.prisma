@@ -90,6 +90,8 @@ model School {
   notificationPreferences NotificationPreference[]
   bugReports              BugReport[]
   supportMessages         SupportMessage[]
+  activityLogs            ActivityLog[]
+  notifications           Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -153,6 +155,9 @@ model User {
   notificationPreferences NotificationPreference[]
   bugReports              BugReport[]
   supportMessages         SupportMessage[]
+  activityLogs            ActivityLog[]
+  notifications           Notification[]
+  pushSubscriptions       PushSubscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1483,4 +1488,60 @@ model SupportMessage {
   createdAt DateTime @default(now())
 
   @@index([schoolId])
+}
+
+// ----------------------------------------------------------------------------
+// PHASE 16 — activity log, in-app notifications, push subscriptions
+// ----------------------------------------------------------------------------
+
+// An audit/activity log: an append-only record of important actions across the
+// app. Powers the dashboard activity feed AND gives accountability/security — you
+// can answer "who marked attendance for 5A, and when?" after the fact.
+model ActivityLog {
+  id            String   @id @default(cuid())
+  action        String // e.g. ATTENDANCE_MARKED | ENQUIRY_CREATED | FEE_RECORDED
+  description   String // human-readable: "Marked attendance for Class 5A"
+  entityType    String? // e.g. "Attendance" | "Enquiry"
+  entityId      String?
+  performedById String
+  performedBy   User     @relation(fields: [performedById], references: [id])
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+}
+
+// An in-app notification record (separate from the push delivery). Shown in the
+// bell dropdown; when a push is sent we also create one of these.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  url       String? // deep link opened on click
+  type      String   @default("GENERAL")
+  isRead    Boolean  @default(false)
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+// A Web Push subscription. One user may have several (phone + laptop). endpoint
+// is unique per browser+device; p256dh/auth are the encryption keys the push
+// service needs to deliver our encrypted payload.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
