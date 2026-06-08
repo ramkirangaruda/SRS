@@ -3,24 +3,19 @@
 // wouldn't otherwise fit in the bottom bar.
 "use client";
 
-import { signOut } from "next-auth/react";
-import { LogOut } from "lucide-react";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import type { NavItem } from "@/lib/nav";
 
-export function MobileHeader({ userName }: { userName: string }) {
+export function MobileHeader({ items, roleLabel }: { items: NavItem[]; roleLabel: string }) {
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-card px-4 md:hidden print:hidden">
-      <span className="text-base font-bold">SchoolSync</span>
+    <header className="flex h-14 items-center justify-between border-b bg-card px-2 md:hidden print:hidden">
+      {/* Hamburger opens the full vertical module drawer. */}
       <div className="flex items-center gap-1">
-        <NotificationBell />
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex items-center gap-1 p-2 text-sm text-muted-foreground"
-          aria-label={`Sign out ${userName}`}
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
+        <MobileNav items={items} roleLabel={roleLabel} />
+        <span className="text-base font-bold">SchoolSync</span>
       </div>
+      <NotificationBell />
     </header>
   );
 }

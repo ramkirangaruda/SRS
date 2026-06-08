@@ -12,7 +12,6 @@ import { NAV_BY_ROLE } from "@/lib/nav";
 import { getUnreadCounts } from "@/lib/notifications";
 import { UnreadProvider } from "@/components/unread-provider";
 import { Sidebar } from "@/components/layout/sidebar";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { MobileHeader } from "@/components/layout/mobile-header";
 
 type AppShellProps = {
@@ -46,22 +45,18 @@ export async function AppShell({ children, requiredRole }: AppShellProps) {
   const unread = await getUnreadCounts({ id: session.user.id, role, schoolId: session.user.schoolId });
 
   return (
-    // UnreadProvider exposes the counts to Sidebar/BottomNav for the badges.
+    // UnreadProvider exposes the counts to the nav badges.
     <UnreadProvider initial={unread}>
       <div className="flex min-h-screen">
         {/* Desktop: sidebar on the left. Hidden on mobile (md:flex inside). */}
         <Sidebar items={navItems} userName={userName} roleLabel={roleLabel} />
 
-        <div className="flex flex-1 flex-col">
-          {/* Mobile: top bar with brand + sign out. Hidden on desktop. */}
-          <MobileHeader userName={userName} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Mobile: top bar with a hamburger that opens the full module drawer. */}
+          <MobileHeader items={navItems} roleLabel={roleLabel} />
 
-          {/* Page content. pb-20 leaves room above the mobile bottom nav. */}
-          <main className="flex-1 p-4 pb-20 md:p-8 md:pb-8">{children}</main>
+          <main className="flex-1 p-4 md:p-8">{children}</main>
         </div>
-
-        {/* Mobile: bottom nav. Hidden on desktop. */}
-        <BottomNav items={navItems} />
       </div>
     </UnreadProvider>
   );
