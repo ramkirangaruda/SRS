@@ -66,6 +66,7 @@ async function main() {
   await prisma.activityLog.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.pushSubscription.deleteMany();
+  await prisma.paymentTransaction.deleteMany();
   // Phase 12: timetable + virtual classroom + staff reference class/user/year.
   await prisma.timetableEntry.deleteMany();
   await prisma.periodTemplate.deleteMany();

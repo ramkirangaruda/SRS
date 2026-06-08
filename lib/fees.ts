@@ -444,6 +444,19 @@ export async function getChildFeeDetail(studentId: string, parentId: string, sch
   return getStudentFeeDetail(studentId, schoolId, { parentId });
 }
 
+// Pending balance (paise) for one student, scoped to a parent for ownership.
+// Used by the online-payment create-order route to cap the amount server-side.
+export async function getStudentPending(studentId: string, parentId: string, schoolId: string): Promise<{ total: number; paid: number; pending: number } | null> {
+  const student = await prisma.student.findFirst({ where: { id: studentId, parentId, schoolId }, select: { classId: true } });
+  if (!student) return null;
+  const yearId = await activeYearId(schoolId);
+  const fs = yearId ? await prisma.feeStructure.findFirst({ where: { schoolId, academicYearId: yearId, classId: student.classId }, select: { totalAmount: true } }) : null;
+  const total = fs?.totalAmount ?? 0;
+  const agg = await prisma.feePayment.aggregate({ where: { studentId }, _sum: { amount: true } });
+  const paid = agg._sum.amount ?? 0;
+  return { total, paid, pending: Math.max(0, total - paid) };
+}
+
 // One payment with everything a printable receipt needs (school header, student,
 // collector). Scoped to schoolId so a principal can't print another school's receipt.
 export async function getPaymentReceipt(paymentId: string, schoolId: string) {

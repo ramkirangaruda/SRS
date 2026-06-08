@@ -158,6 +158,7 @@ model User {
   activityLogs            ActivityLog[]
   notifications           Notification[]
   pushSubscriptions       PushSubscription[]
+  paymentTransactions     PaymentTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -191,6 +192,7 @@ model Student {
   // Everything that accumulates per student over time.
   attendances           Attendance[]
   feePayments           FeePayment[]
+  paymentTransactions   PaymentTransaction[]
   testReports           TestReport[]
   progressReports       ProgressReport[]
   assignmentSubmissions AssignmentSubmission[]
@@ -1544,4 +1546,32 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ----------------------------------------------------------------------------
+// ONLINE PAYMENTS (Razorpay)
+// ----------------------------------------------------------------------------
+
+// Tracks EVERY online payment attempt — including failed/abandoned ones — so we
+// have an audit trail beyond the successful FeePayment rows. status moves
+// CREATED -> PAID | FAILED. The razorpay* fields are what we verify the
+// HMAC-SHA256 signature against before trusting a payment.
+model PaymentTransaction {
+  id                String   @id @default(cuid())
+  amount            Int // paise
+  status            String   @default("CREATED") // CREATED | PAID | FAILED
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentId          String
+  parent            User     @relation(fields: [parentId], references: [id])
+  schoolId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([parentId])
+  @@index([status])
 }
