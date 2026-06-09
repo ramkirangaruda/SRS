@@ -37,7 +37,7 @@ export function LanguageSection({ currentLocale }: { currentLocale: string }) {
           </button>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">Only English and Hindi are fully translated; others fall back to English.</p>
+      <p className="text-xs text-muted-foreground">App labels are translated into all listed languages. Your content (homework, diary, messages) stays in the language it was written.</p>
     </div>
   );
 }
