@@ -1559,7 +1559,7 @@ model PushSubscription {
 model PaymentTransaction {
   id                String   @id @default(cuid())
   amount            Int // paise
-  status            String   @default("CREATED") // CREATED | PAID | FAILED
+  status            String   @default("CREATED") // CREATED | SUCCESS | FAILED
   razorpayOrderId   String   @unique
   razorpayPaymentId String?
   razorpaySignature String?

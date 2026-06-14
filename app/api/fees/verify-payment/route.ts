@@ -1,13 +1,17 @@
-// Verify a completed Razorpay payment and, only if genuine, record the FeePayment.
-// PARENT only. The signature check (see lib/razorpay verifyPaymentSignature) is
-// what makes this trustworthy — a forged "success" POST fails the HMAC and is
-// rejected, so no FeePayment is created.
+// FRONTEND CALLBACK verification. PARENT only. This is the "happy path" — the
+// browser reports a successful checkout and we confirm it. Security layers:
+//   1. HMAC signature (order|payment) proves the callback is genuinely Razorpay's
+//      and untampered — we NEVER trust the browser's word alone.
+//   2. finalizeVerifiedPayment then re-checks the AMOUNT against Razorpay's API
+//      and records idempotently.
+// The webhook (/api/fees/webhook) is the backup if the parent closes the browser
+// before this fires — both routes converge on the same idempotent finalizer.
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api-auth";
 import { ROLES } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
-import { recordPayment, FeeError } from "@/lib/fees";
 import { verifyPaymentSignature } from "@/lib/razorpay";
+import { finalizeVerifiedPayment } from "@/lib/payments";
 
 export async function POST(request: Request) {
   const auth = await requireRole(ROLES.PARENT);
@@ -20,36 +24,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing payment fields" }, { status: 422 });
   }
 
-  // The transaction must exist, belong to THIS parent, and not already be paid.
+  // The transaction must exist and belong to THIS parent.
   const txn = await prisma.paymentTransaction.findUnique({ where: { razorpayOrderId: razorpay_order_id } });
   if (!txn || txn.parentId !== auth.id || txn.schoolId !== auth.schoolId) {
     return NextResponse.json({ error: "Unknown order" }, { status: 404 });
   }
-  if (txn.status === "PAID") return NextResponse.json({ error: "Already processed" }, { status: 409 });
 
-  // THE critical check. Tampered/forged → mark FAILED, create nothing.
-  const genuine = verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
-  if (!genuine) {
+  // 1. HMAC check — forged/tampered callback → mark FAILED, record nothing.
+  if (!verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
     await prisma.paymentTransaction.update({ where: { id: txn.id }, data: { status: "FAILED", razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature } });
     return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
   }
+  // Persist the signature for the audit trail.
+  await prisma.paymentTransaction.update({ where: { id: txn.id }, data: { razorpaySignature: razorpay_signature } });
 
-  // Genuine → record the FeePayment (mode ONLINE, receipt = razorpay payment id).
-  // recordPayment re-checks the balance inside its own transaction, so a double
-  // submit or stale amount can't overshoot.
-  try {
-    const result = await recordPayment({
-      studentId: txn.studentId, amount: txn.amount, date: new Date(), mode: "ONLINE",
-      receiptNumber: razorpay_payment_id, notes: "Razorpay online payment",
-      collectedById: auth.id, schoolId: auth.schoolId,
-    });
-    await prisma.paymentTransaction.update({ where: { id: txn.id }, data: { status: "PAID", razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature } });
-    return NextResponse.json({ ok: true, paymentId: razorpay_payment_id, amount: txn.amount, status: result.status });
-  } catch (e) {
-    // Signature was valid but recording failed (e.g. balance changed). Keep the
-    // txn record for reconciliation; report so the parent isn't wrongly "paid".
-    await prisma.paymentTransaction.update({ where: { id: txn.id }, data: { status: "FAILED", razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature } });
-    const msg = e instanceof FeeError ? e.message : "Could not record payment";
-    return NextResponse.json({ error: msg }, { status: 409 });
+  // 2. Amount-match + idempotent record (shared with the webhook).
+  const result = await finalizeVerifiedPayment(txn, razorpay_payment_id);
+  switch (result.status) {
+    case "success":
+    case "already": // a retry or the webhook beat us — still report success
+      return NextResponse.json({ ok: true, paymentId: razorpay_payment_id, amount: txn.amount });
+    case "amount_mismatch":
+      return NextResponse.json({ error: "Payment amount mismatch" }, { status: 400 });
+    case "not_captured":
+      return NextResponse.json({ error: "Payment not captured" }, { status: 400 });
+    default:
+      return NextResponse.json({ error: result.message }, { status: 409 });
   }
 }
