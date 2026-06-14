@@ -46,7 +46,7 @@ export async function listEnquiries(schoolId: string, opts: { status?: string; c
     ...(clean(opts.categoryId) ? { categoryId: opts.categoryId } : {}),
     ...(clean(opts.source) ? { source: opts.source } : {}),
     ...(clean(opts.classInterestedIn) ? { classInterestedIn: opts.classInterestedIn } : {}),
-    ...(clean(opts.search) ? { OR: [{ parentName: { contains: opts.search } }, { childName: { contains: opts.search } }, { phone: { contains: opts.search } }] } : {}),
+    ...(clean(opts.search) ? { OR: [{ parentName: { contains: opts.search, mode: "insensitive" as const } }, { childName: { contains: opts.search, mode: "insensitive" as const } }, { phone: { contains: opts.search, mode: "insensitive" as const } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.enquiry.findMany({ where, include, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),

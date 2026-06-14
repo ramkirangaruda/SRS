@@ -67,7 +67,7 @@ export async function listVisitors(schoolId: string, opts: { date?: string; from
     schoolId,
     ...(checkInTime ? { checkInTime } : {}),
     ...(clean(opts.purpose) ? { purpose: opts.purpose } : {}),
-    ...(clean(opts.search) ? { OR: [{ name: { contains: opts.search } }, { phone: { contains: opts.search } }] } : {}),
+    ...(clean(opts.search) ? { OR: [{ name: { contains: opts.search, mode: "insensitive" as const } }, { phone: { contains: opts.search, mode: "insensitive" as const } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.visitorRegister.findMany({ where, include, orderBy: { checkInTime: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),

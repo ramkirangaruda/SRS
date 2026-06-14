@@ -66,8 +66,8 @@ export async function listStudents(params: ListStudentsParams) {
       ? {
           // OR: match if EITHER name OR admissionNumber contains the search text.
           OR: [
-            { name: { contains: search } },
-            { admissionNumber: { contains: search } },
+            { name: { contains: search, mode: "insensitive" as const } },
+            { admissionNumber: { contains: search, mode: "insensitive" as const } },
           ],
         }
       : {}),

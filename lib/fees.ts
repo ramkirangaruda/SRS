@@ -151,7 +151,7 @@ export async function listStudentFees(params: ListStudentFeesParams) {
     schoolId: params.schoolId,
     ...(classId ? { classId } : {}),
     ...(search
-      ? { OR: [{ name: { contains: search } }, { admissionNumber: { contains: search } }] }
+      ? { OR: [{ name: { contains: search, mode: "insensitive" as const } }, { admissionNumber: { contains: search, mode: "insensitive" as const } }] }
       : {}),
   };
 

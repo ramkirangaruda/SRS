@@ -19,7 +19,7 @@ export async function listVideos(params: {
   const pageSize = params.pageSize ?? 12;
   const where = {
     schoolId: params.schoolId,
-    ...(clean(params.search) ? { title: { contains: params.search } } : {}),
+    ...(clean(params.search) ? { title: { contains: params.search, mode: "insensitive" as const } } : {}),
     ...(clean(params.category) ? { category: params.category } : {}),
     ...audienceWhere(params.classIds),
   };

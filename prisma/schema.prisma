@@ -1,12 +1,16 @@
 // ============================================================================
 // SchoolSync database schema — the single source of truth for every table.
 //
-// SQLite limitations we design around (all handled with String):
-//   1. No native enums      -> status/role/type fields are String. Allowed values
+// Database: PostgreSQL (Supabase) in dev and prod. We deliberately keep these
+// portable patterns from the original SQLite design — they cost nothing on
+// Postgres and keep the schema simple:
+//   1. Enums as String      -> status/role/type fields are String. Allowed values
 //                              are documented in a comment next to each field.
-//   2. No Json column type   -> JSON data (timetable periods, meal menus) is
+//   2. JSON as String        -> JSON data (timetable periods, meal menus) is
 //                              stored as a stringified JSON String.
 //   3. No scalar lists       -> "attachments" (many files) is a JSON String array.
+// NOTE: Postgres text search is case-SENSITIVE by default (SQLite was not), so all
+// `contains` search filters in lib/* pass `mode: "insensitive"`.
 //
 // Conventions:
 //   - Every model has id (cuid), createdAt, updatedAt.
@@ -19,8 +23,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled connection (PgBouncer, port 6543) — safe for serverless (Vercel).
+  url       = env("DATABASE_URL")
+  // Direct connection (port 5432) — used by `prisma migrate` for DDL, which the
+  // transaction pooler can't run. Both point at the same Supabase database.
+  directUrl = env("DIRECT_URL")
 }
 
 // ----------------------------------------------------------------------------

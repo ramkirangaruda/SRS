@@ -43,7 +43,7 @@ export async function listStaff(schoolId: string, opts: { search?: string; desig
       ...(clean(opts.designation) ? { designation: opts.designation } : {}),
       ...(clean(opts.status) ? { status: opts.status } : {}),
       ...(clean(opts.department) ? { department: opts.department } : {}),
-      ...(clean(opts.search) ? { user: { OR: [{ name: { contains: opts.search } }, { email: { contains: opts.search } }] } } : {}),
+      ...(clean(opts.search) ? { user: { OR: [{ name: { contains: opts.search, mode: "insensitive" as const } }, { email: { contains: opts.search, mode: "insensitive" as const } }] } } : {}),
     },
     include: { user: { select: { name: true, email: true, phone: true, isActive: true } } },
     orderBy: { user: { name: "asc" } },

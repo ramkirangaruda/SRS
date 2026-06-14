@@ -152,7 +152,7 @@ export async function listUsers(schoolId: string, opts: { role?: string; status?
     schoolId,
     ...(clean(opts.role) ? { role: opts.role } : {}),
     ...(opts.status === "active" ? { isActive: true } : opts.status === "inactive" ? { isActive: false } : {}),
-    ...(clean(opts.search) ? { OR: [{ name: { contains: opts.search } }, { email: { contains: opts.search } }] } : {}),
+    ...(clean(opts.search) ? { OR: [{ name: { contains: opts.search, mode: "insensitive" as const } }, { email: { contains: opts.search, mode: "insensitive" as const } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.user.findMany({ where, select: { id: true, name: true, email: true, phone: true, role: true, isActive: true, lastLoginAt: true }, orderBy: { name: "asc" }, skip: (page - 1) * pageSize, take: pageSize }),

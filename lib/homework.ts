@@ -92,7 +92,7 @@ export async function listHomework(params: {
     ...(clean(params.sectionId) ? { sectionId: params.sectionId } : {}),
     ...(clean(params.subjectId) ? { subjectId: params.subjectId } : {}),
     ...(clean(params.assignedById) ? { assignedById: params.assignedById } : {}),
-    ...(clean(params.search) ? { title: { contains: params.search } } : {}),
+    ...(clean(params.search) ? { title: { contains: params.search, mode: "insensitive" as const } } : {}),
   };
 
   const [rows, total] = await Promise.all([

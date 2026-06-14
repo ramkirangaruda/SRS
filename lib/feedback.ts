@@ -158,7 +158,7 @@ export async function listFeedback(params: ListFeedbackParams) {
     ...(clean(params.status) ? { status: params.status } : {}),
     ...(clean(params.category) ? { category: params.category } : {}),
     ...(clean(params.search)
-      ? { OR: [{ referenceNumber: { contains: params.search } }, { subject: { contains: params.search } }] }
+      ? { OR: [{ referenceNumber: { contains: params.search, mode: "insensitive" as const } }, { subject: { contains: params.search, mode: "insensitive" as const } }] }
       : {}),
     ...(clean(params.startDate) || clean(params.endDate)
       ? {

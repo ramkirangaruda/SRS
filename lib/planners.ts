@@ -27,7 +27,7 @@ export async function listPlanners(schoolId: string, opts: { type?: string; clas
     ...(clean(opts.classId) ? { classId: opts.classId } : {}),
     ...(clean(opts.subjectId) ? { subjectId: opts.subjectId } : {}),
     ...(clean(opts.createdById) ? { createdById: opts.createdById } : {}),
-    ...(clean(opts.search) ? { OR: [{ title: { contains: opts.search } }, { description: { contains: opts.search } }] } : {}),
+    ...(clean(opts.search) ? { OR: [{ title: { contains: opts.search, mode: "insensitive" as const } }, { description: { contains: opts.search, mode: "insensitive" as const } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.planner.findMany({ where, include: plannerInclude, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),
@@ -124,7 +124,7 @@ export async function listResources(schoolId: string, opts: { subjectId?: string
     schoolId,
     ...(clean(opts.subjectId) ? { subjectId: opts.subjectId } : {}),
     ...(clean(opts.type) ? { type: opts.type } : {}),
-    ...(clean(opts.search) ? { OR: [{ title: { contains: opts.search } }, { description: { contains: opts.search } }, { subject: { name: { contains: opts.search } } }] } : {}),
+    ...(clean(opts.search) ? { OR: [{ title: { contains: opts.search, mode: "insensitive" as const } }, { description: { contains: opts.search, mode: "insensitive" as const } }, { subject: { name: { contains: opts.search, mode: "insensitive" as const } } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.resource.findMany({ where, include: resourceInclude, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),

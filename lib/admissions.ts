@@ -61,7 +61,7 @@ export async function listAdmissions(schoolId: string, opts: { status?: string; 
     ...(clean(opts.status) ? { status: opts.status } : {}),
     ...(clean(opts.classAppliedFor) ? { classAppliedFor: opts.classAppliedFor } : {}),
     ...(clean(opts.source) ? { source: opts.source } : {}),
-    ...(clean(opts.search) ? { OR: [{ studentName: { contains: opts.search } }, { parentName: { contains: opts.search } }, { phone: { contains: opts.search } }] } : {}),
+    ...(clean(opts.search) ? { OR: [{ studentName: { contains: opts.search, mode: "insensitive" as const } }, { parentName: { contains: opts.search, mode: "insensitive" as const } }, { phone: { contains: opts.search, mode: "insensitive" as const } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.admissionQuery.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),
