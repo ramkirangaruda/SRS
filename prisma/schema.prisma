@@ -102,6 +102,8 @@ model School {
   notifications           Notification[]
   branches                Branch[]
   toddlers                Toddler[]
+  tuitionBatches          TuitionBatch[]
+  tuitionPayments         TuitionPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -163,6 +165,83 @@ model Toddler {
 
   @@index([schoolId])
   @@index([parentId])
+}
+
+// ----------------------------------------------------------------------------
+// TUITIONS (Branch 2 module). A tuition centre runs BATCHES (e.g. "Maths · Gr 5 ·
+// Evening"); existing students ENROLL in a batch; each batch carries a flat fee
+// and we track PAYMENTS against it (paise, like school fees). Branch-gated for the
+// principal, but the data itself is shared (no branchId).
+// ----------------------------------------------------------------------------
+
+// One tuition batch / class group.
+model TuitionBatch {
+  id        String  @id @default(cuid())
+  name      String // e.g. "Maths · Grade 5 · Evening"
+  subject   String? // optional subject label
+  feeAmount Int     @default(0) // per-student fee for this batch, in paise
+  schedule  String? // free text, e.g. "Mon/Wed/Fri 5–6pm"
+  isActive  Boolean @default(true)
+
+  // Optional tutor (a staff user) who runs the batch.
+  tutorId String?
+  tutor   User?   @relation(fields: [tutorId], references: [id], onDelete: SetNull)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  enrollments TuitionEnrollment[]
+  payments    TuitionPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([tutorId])
+}
+
+// A student's enrollment in a batch. Unique per (batch, student).
+model TuitionEnrollment {
+  id        String  @id @default(cuid())
+  batchId   String
+  batch     TuitionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, studentId])
+  @@index([batchId])
+  @@index([studentId])
+}
+
+// A payment made by a student towards a batch's fee. We keep batchId + studentId
+// (not just enrollmentId) so a payment history survives even if an enrollment is
+// later removed, and so per-student/per-batch sums are simple groupBy queries.
+model TuitionPayment {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     TuitionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount    Int // paise
+  date      DateTime @default(now())
+  mode      String   @default("CASH") // CASH | ONLINE | UPI | CARD | OTHER
+  notes     String?
+
+  collectedById String
+  collectedBy   User   @relation(fields: [collectedById], references: [id])
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([batchId])
+  @@index([studentId])
 }
 
 // Anyone who can log in. role is "PRINCIPAL" | "TEACHER" | "PARENT" (validated in
@@ -229,6 +308,8 @@ model User {
   notifications           Notification[]
   pushSubscriptions       PushSubscription[]
   paymentTransactions     PaymentTransaction[]
+  tuitionBatchesTaught    TuitionBatch[] // batches where this user is the tutor
+  tuitionPaymentsCollected TuitionPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -267,6 +348,8 @@ model Student {
   progressReports       ProgressReport[]
   assignmentSubmissions AssignmentSubmission[]
   daycareLogs           DaycareLog[]
+  tuitionEnrollments    TuitionEnrollment[]
+  tuitionPayments       TuitionPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

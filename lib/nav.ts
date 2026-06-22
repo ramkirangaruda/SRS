@@ -39,6 +39,7 @@ export type IconName =
   | "planners"
   | "daycare"
   | "toddlers"
+  | "tuitions"
   | "resources"
   | "visitors"
   | "enquiry"
@@ -80,6 +81,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Planners", href: "/principal/planners", icon: "planners", module: "planners" },
     { label: "Daycare", href: "/principal/daycare", icon: "daycare", module: "daycare" },
     { label: "Toddlers", href: "/principal/toddlers", icon: "toddlers", module: "toddlers" },
+    { label: "Tuitions", href: "/principal/tuitions", icon: "tuitions", module: "tuitions" },
     { label: "Enquiries", href: "/principal/enquiry", icon: "enquiry", module: "enquiry" },
     { label: "Admissions", href: "/principal/admissions", icon: "admissions", module: "admissions" },
     { label: "Visitors", href: "/principal/visitors", icon: "visitors", module: "visitors" },
@@ -95,6 +97,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Planners", href: "/dashboard/teacher/planners", icon: "planners" },
     { label: "Daycare", href: "/dashboard/teacher/daycare", icon: "daycare" },
     { label: "Toddlers", href: "/dashboard/teacher/toddlers", icon: "toddlers" },
+    { label: "Tuitions", href: "/dashboard/teacher/tuitions", icon: "tuitions" },
     { label: "Settings", href: "/dashboard/teacher/settings", icon: "settings" },
   ],
   [ROLES.PARENT]: [
@@ -119,6 +122,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Teachers", href: "/parent/staff", icon: "staff" },
     { label: "Daycare", href: "/parent/daycare", icon: "daycare" },
     { label: "Toddler", href: "/parent/toddlers", icon: "toddlers" },
+    { label: "Tuitions", href: "/parent/tuitions", icon: "tuitions" },
     { label: "Resources", href: "/parent/resources", icon: "resources" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],

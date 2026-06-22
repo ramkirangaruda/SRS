@@ -98,11 +98,14 @@ async function main() {
     },
   });
 
-  // BRANCHES — two "module profiles" the principal can switch between. Both start
-  // with all modules on; the principal tailors each in Settings → Branches.
-  const allModules = serializeModules(TOGGLEABLE_MODULES.map((m) => m.key));
-  await prisma.branch.create({ data: { name: "Branch 1", schoolId: school.id, isDefault: true, sortOrder: 0, enabledModules: allModules } });
-  await prisma.branch.create({ data: { name: "Branch 2", schoolId: school.id, isDefault: false, sortOrder: 1, enabledModules: allModules } });
+  // BRANCHES — two "module profiles" the principal can switch between. Branch 2
+  // additionally runs Tuitions; Branch 1 does not. The principal can re-tailor each
+  // in Settings → Branches.
+  const allKeys = TOGGLEABLE_MODULES.map((m) => m.key);
+  const branch1Modules = serializeModules(allKeys.filter((k) => k !== "tuitions"));
+  const branch2Modules = serializeModules(allKeys);
+  await prisma.branch.create({ data: { name: "Branch 1", schoolId: school.id, isDefault: true, sortOrder: 0, enabledModules: branch1Modules } });
+  await prisma.branch.create({ data: { name: "Branch 2", schoolId: school.id, isDefault: false, sortOrder: 1, enabledModules: branch2Modules } });
 
   // A PAST academic year (inactive) so the year-switcher has something to show.
   await prisma.academicYear.create({
@@ -244,6 +247,14 @@ async function main() {
       { name: "Kabir", dateOfBirth: new Date("2022-12-01"), gender: "MALE", guardianName: "Ravi Guardian", guardianPhone: "9000000003", parentId: parent2.id, schoolId: school.id },
     ],
   });
+
+  // 9c. TUITIONS (Branch 2 module) — one batch with two enrolled students + a part
+  //     payment, so the Tuitions screens have demo data.
+  const tuitionBatch = await prisma.tuitionBatch.create({
+    data: { name: "Maths · Grade 5 · Evening", subject: "Maths", feeAmount: toMinor(2000), schedule: "Mon/Wed/Fri 5–6pm", tutorId: teacher.id, schoolId: school.id },
+  });
+  await prisma.tuitionEnrollment.createMany({ data: [{ batchId: tuitionBatch.id, studentId: ravi.id }, { batchId: tuitionBatch.id, studentId: anya.id }] });
+  await prisma.tuitionPayment.create({ data: { batchId: tuitionBatch.id, studentId: ravi.id, amount: toMinor(1000), mode: "CASH", collectedById: principal.id, schoolId: school.id } });
 
   // 10. FEE PAYMENTS — varied so the dashboard shows PAID / PARTIAL / UNPAID.
   //   Mia: ₹6,000 of ₹12,000   -> PARTIAL
