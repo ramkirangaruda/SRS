@@ -38,6 +38,7 @@ export type IconName =
   | "meetingroom"
   | "planners"
   | "daycare"
+  | "toddlers"
   | "resources"
   | "visitors"
   | "enquiry"
@@ -78,6 +79,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Meeting Room", href: "/principal/meeting-room", icon: "meetingroom", module: "meetingroom" },
     { label: "Planners", href: "/principal/planners", icon: "planners", module: "planners" },
     { label: "Daycare", href: "/principal/daycare", icon: "daycare", module: "daycare" },
+    { label: "Toddlers", href: "/principal/toddlers", icon: "toddlers", module: "toddlers" },
     { label: "Enquiries", href: "/principal/enquiry", icon: "enquiry", module: "enquiry" },
     { label: "Admissions", href: "/principal/admissions", icon: "admissions", module: "admissions" },
     { label: "Visitors", href: "/principal/visitors", icon: "visitors", module: "visitors" },
@@ -92,6 +94,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Meeting Room", href: "/dashboard/teacher/meeting-room", icon: "meetingroom" },
     { label: "Planners", href: "/dashboard/teacher/planners", icon: "planners" },
     { label: "Daycare", href: "/dashboard/teacher/daycare", icon: "daycare" },
+    { label: "Toddlers", href: "/dashboard/teacher/toddlers", icon: "toddlers" },
     { label: "Settings", href: "/dashboard/teacher/settings", icon: "settings" },
   ],
   [ROLES.PARENT]: [
@@ -115,6 +118,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: "Virtual Classroom", href: "/parent/virtual-classroom", icon: "virtualclassroom" },
     { label: "Teachers", href: "/parent/staff", icon: "staff" },
     { label: "Daycare", href: "/parent/daycare", icon: "daycare" },
+    { label: "Toddler", href: "/parent/toddlers", icon: "toddlers" },
     { label: "Resources", href: "/parent/resources", icon: "resources" },
     { label: "Settings", href: "/dashboard/parent/settings", icon: "settings" },
   ],

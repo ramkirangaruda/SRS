@@ -101,6 +101,7 @@ model School {
   activityLogs            ActivityLog[]
   notifications           Notification[]
   branches                Branch[]
+  toddlers                Toddler[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -133,6 +134,37 @@ model Branch {
   @@index([schoolId])
 }
 
+// A TODDLER roster entry — the youngest children, managed as a simple registry
+// distinct from the Daycare check-in/out logs. Data is shared across branches (the
+// Toddlers module is just shown/hidden per branch). Optionally linked to a parent
+// User so that parent can view their own toddler's profile.
+model Toddler {
+  id            String    @id @default(cuid())
+  name          String
+  dateOfBirth   DateTime? // used to show age; optional
+  gender        String? // "MALE" | "FEMALE" | "OTHER"
+  photo         String? // stored file URL (public/uploads)
+  guardianName  String? // primary guardian on file
+  guardianPhone String? // contact number for the guardian
+  allergies     String? // free text, e.g. "Peanuts, dairy"
+  medicalNotes  String? // any other medical/care notes
+  notes         String? // general notes
+
+  // Optional link to a parent account. SetNull on delete so removing a parent
+  // never deletes the child's record (just unlinks it).
+  parentId String?
+  parent   User?   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([parentId])
+}
+
 // Anyone who can log in. role is "PRINCIPAL" | "TEACHER" | "PARENT" (validated in
 // lib/roles.ts). We store passwordHash (bcrypt), never plaintext.
 model User {
@@ -159,6 +191,8 @@ model User {
 
   // A PARENT links to their children (1:N). Single relation -> no relation name.
   children Student[]
+  // Toddler-roster entries linked to this parent (so a parent sees their own).
+  toddlers Toddler[]
 
   // Every place a User can act gets its own back-relation. Where a model touches
   // User more than once (Feedback) we MUST name the relations to disambiguate.

@@ -235,6 +235,16 @@ async function main() {
     },
   });
 
+  // 9b. TODDLERS — a small roster, one linked to a parent account so the parent's
+  //     read-only Toddler view has something to show.
+  await prisma.toddler.createMany({
+    data: [
+      { name: "Aarav", dateOfBirth: new Date("2023-02-10"), gender: "MALE", guardianName: "Priya Parent", guardianPhone: "9000000001", allergies: "Peanuts", parentId: parent.id, schoolId: school.id },
+      { name: "Diya", dateOfBirth: new Date("2023-09-18"), gender: "FEMALE", guardianName: "Sam Guardian", guardianPhone: "9000000002", schoolId: school.id },
+      { name: "Kabir", dateOfBirth: new Date("2022-12-01"), gender: "MALE", guardianName: "Ravi Guardian", guardianPhone: "9000000003", parentId: parent2.id, schoolId: school.id },
+    ],
+  });
+
   // 10. FEE PAYMENTS — varied so the dashboard shows PAID / PARTIAL / UNPAID.
   //   Mia: ₹6,000 of ₹12,000   -> PARTIAL
   //   Leo: nothing             -> UNPAID
