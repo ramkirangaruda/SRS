@@ -75,7 +75,9 @@
       "notifications": "Notifications",
       "notificationsDesc": "Choose what you're notified about",
       "logout": "Logout",
-      "logoutDesc": "Sign out of your account"
+      "logoutDesc": "Sign out of your account",
+      "branches": "Branches",
+      "branchesDesc": "Manage branches and their modules"
     },
     "language": {
       "title": "Change Language",

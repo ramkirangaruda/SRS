@@ -8,6 +8,7 @@
 // that server→client boundary, so the client components map the name to a real
 // lucide icon (see components/layout/nav-icons.ts).
 import { ROLES, type Role } from "@/lib/roles";
+import type { ModuleKey } from "@/lib/modules";
 
 // The set of icon names our nav can use. Using a union type means a typo here
 // is a compile error, and nav-icons.ts is forced to handle every name.
@@ -46,36 +47,41 @@ export type NavItem = {
   label: string;
   href: string;
   icon: IconName;
+  // Which toggleable module this item belongs to. When set, the item only shows
+  // if the principal's CURRENT branch enables that module (see app-shell.tsx).
+  // Items without a module (Dashboard, Settings) always show. Only the principal
+  // menu is branch-gated; teacher/parent menus ignore this field.
+  module?: ModuleKey;
 };
 
 // One menu per role. Add/remove items here and both navs update automatically.
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   [ROLES.PRINCIPAL]: [
     { label: "Dashboard", href: "/dashboard/principal", icon: "dashboard" },
-    { label: "Students", href: "/principal/students", icon: "students" },
-    { label: "Fees", href: "/principal/fees", icon: "fees" },
-    { label: "Attendance", href: "/principal/attendance", icon: "attendance" },
-    { label: "Homework", href: "/principal/homework", icon: "homework" },
-    { label: "Diary", href: "/principal/diary", icon: "diary" },
-    { label: "Broadcast", href: "/principal/broadcast", icon: "broadcast" },
-    { label: "Feedback", href: "/principal/feedback", icon: "feedback" },
-    { label: "Events", href: "/principal/events", icon: "events" },
-    { label: "Holidays", href: "/principal/holidays", icon: "holidays" },
-    { label: "Meals", href: "/principal/meals", icon: "meals" },
-    { label: "Gallery", href: "/principal/gallery", icon: "gallery" },
-    { label: "Videos", href: "/principal/videos", icon: "videos" },
-    { label: "E-Learning", href: "/principal/elearning", icon: "elearning" },
-    { label: "Test Reports", href: "/principal/test-reports", icon: "testreports" },
-    { label: "Progress Reports", href: "/principal/progress-reports", icon: "reports" },
-    { label: "Timetable", href: "/principal/timetable", icon: "timetable" },
-    { label: "Virtual Classroom", href: "/principal/virtual-classroom", icon: "virtualclassroom" },
-    { label: "Meeting Room", href: "/principal/meeting-room", icon: "meetingroom" },
-    { label: "Planners", href: "/principal/planners", icon: "planners" },
-    { label: "Daycare", href: "/principal/daycare", icon: "daycare" },
-    { label: "Enquiries", href: "/principal/enquiry", icon: "enquiry" },
-    { label: "Admissions", href: "/principal/admissions", icon: "admissions" },
-    { label: "Visitors", href: "/principal/visitors", icon: "visitors" },
-    { label: "Staff", href: "/principal/staff", icon: "staff" },
+    { label: "Students", href: "/principal/students", icon: "students", module: "students" },
+    { label: "Fees", href: "/principal/fees", icon: "fees", module: "fees" },
+    { label: "Attendance", href: "/principal/attendance", icon: "attendance", module: "attendance" },
+    { label: "Homework", href: "/principal/homework", icon: "homework", module: "homework" },
+    { label: "Diary", href: "/principal/diary", icon: "diary", module: "diary" },
+    { label: "Broadcast", href: "/principal/broadcast", icon: "broadcast", module: "broadcast" },
+    { label: "Feedback", href: "/principal/feedback", icon: "feedback", module: "feedback" },
+    { label: "Events", href: "/principal/events", icon: "events", module: "events" },
+    { label: "Holidays", href: "/principal/holidays", icon: "holidays", module: "holidays" },
+    { label: "Meals", href: "/principal/meals", icon: "meals", module: "meals" },
+    { label: "Gallery", href: "/principal/gallery", icon: "gallery", module: "gallery" },
+    { label: "Videos", href: "/principal/videos", icon: "videos", module: "videos" },
+    { label: "E-Learning", href: "/principal/elearning", icon: "elearning", module: "elearning" },
+    { label: "Test Reports", href: "/principal/test-reports", icon: "testreports", module: "testreports" },
+    { label: "Progress Reports", href: "/principal/progress-reports", icon: "reports", module: "progressreports" },
+    { label: "Timetable", href: "/principal/timetable", icon: "timetable", module: "timetable" },
+    { label: "Virtual Classroom", href: "/principal/virtual-classroom", icon: "virtualclassroom", module: "virtualclassroom" },
+    { label: "Meeting Room", href: "/principal/meeting-room", icon: "meetingroom", module: "meetingroom" },
+    { label: "Planners", href: "/principal/planners", icon: "planners", module: "planners" },
+    { label: "Daycare", href: "/principal/daycare", icon: "daycare", module: "daycare" },
+    { label: "Enquiries", href: "/principal/enquiry", icon: "enquiry", module: "enquiry" },
+    { label: "Admissions", href: "/principal/admissions", icon: "admissions", module: "admissions" },
+    { label: "Visitors", href: "/principal/visitors", icon: "visitors", module: "visitors" },
+    { label: "Staff", href: "/principal/staff", icon: "staff", module: "staff" },
     { label: "Settings", href: "/dashboard/principal/settings", icon: "settings" },
   ],
   [ROLES.TEACHER]: [

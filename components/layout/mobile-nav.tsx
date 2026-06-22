@@ -14,9 +14,20 @@ import { NAV_ICONS } from "@/components/layout/nav-icons";
 import { useUnread } from "@/components/unread-provider";
 import { unreadForHref, NavBadge } from "@/components/layout/nav-badge";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { BranchSwitcher } from "@/components/layout/branch-switcher";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 
-export function MobileNav({ items, roleLabel }: { items: NavItem[]; roleLabel: string }) {
+export function MobileNav({
+  items,
+  roleLabel,
+  branches,
+  currentBranchId,
+}: {
+  items: NavItem[];
+  roleLabel: string;
+  branches: { id: string; name: string }[];
+  currentBranchId: string;
+}) {
   const pathname = usePathname();
   const unread = useUnread();
   const [open, setOpen] = useState(false);
@@ -34,6 +45,12 @@ export function MobileNav({ items, roleLabel }: { items: NavItem[]; roleLabel: s
         <div className="flex h-14 items-center border-b px-4">
           <SheetTitle className="text-base font-bold">SchoolSync</SheetTitle>
         </div>
+        {/* Branch switcher (principal with 2+ branches). */}
+        {branches.length >= 2 && (
+          <div className="border-b p-3">
+            <BranchSwitcher branches={branches} currentBranchId={currentBranchId} />
+          </div>
+        )}
         <nav className="space-y-1 p-3">
           {items.map((item) => {
             const active = pathname === item.href || (item.href !== homeHref && pathname.startsWith(item.href));

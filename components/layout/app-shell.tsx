@@ -7,8 +7,9 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isRole, ROLE_HOME, type Role } from "@/lib/roles";
+import { isRole, ROLE_HOME, ROLES, type Role } from "@/lib/roles";
 import { NAV_BY_ROLE } from "@/lib/nav";
+import { listBranches, getCurrentBranch, type BranchSummary } from "@/lib/branches";
 import { getUnreadCounts } from "@/lib/notifications";
 import { UnreadProvider } from "@/components/unread-provider";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -36,7 +37,27 @@ export async function AppShell({ children, requiredRole }: AppShellProps) {
     redirect(ROLE_HOME[role]);
   }
 
-  const navItems = NAV_BY_ROLE[role];
+  let navItems = NAV_BY_ROLE[role];
+
+  // BRANCH GATING (principal only): a branch is a "module profile". We resolve the
+  // principal's current branch and hide any nav item whose module that branch
+  // doesn't enable. Items without a `module` (Dashboard, Settings) always show.
+  // Teachers/parents aren't branch-scoped, so their menus pass through unchanged.
+  let branches: BranchSummary[] = [];
+  let currentBranch: BranchSummary | null = null;
+  if (role === ROLES.PRINCIPAL) {
+    branches = await listBranches(session.user.schoolId);
+    currentBranch = await getCurrentBranch(session.user.schoolId);
+    if (currentBranch) {
+      const enabled = new Set(currentBranch.enabledModules);
+      navItems = navItems.filter((item) => !item.module || enabled.has(item.module));
+    }
+  }
+
+  // Props for the switcher (only meaningful when there are 2+ branches).
+  const branchOptions = branches.map((b) => ({ id: b.id, name: b.name }));
+  const currentBranchId = currentBranch?.id ?? "";
+
   // Human-friendly label, e.g. "PRINCIPAL" -> "Principal".
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
   const userName = session.user.name ?? session.user.email ?? "User";
@@ -49,11 +70,22 @@ export async function AppShell({ children, requiredRole }: AppShellProps) {
     <UnreadProvider initial={unread}>
       <div className="flex min-h-screen">
         {/* Desktop: sidebar on the left. Hidden on mobile (md:flex inside). */}
-        <Sidebar items={navItems} userName={userName} roleLabel={roleLabel} />
+        <Sidebar
+          items={navItems}
+          userName={userName}
+          roleLabel={roleLabel}
+          branches={branchOptions}
+          currentBranchId={currentBranchId}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Mobile: top bar with a hamburger that opens the full module drawer. */}
-          <MobileHeader items={navItems} roleLabel={roleLabel} />
+          <MobileHeader
+            items={navItems}
+            roleLabel={roleLabel}
+            branches={branchOptions}
+            currentBranchId={currentBranchId}
+          />
 
           <main className="flex-1 p-4 md:p-8">{children}</main>
         </div>

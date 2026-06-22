@@ -10,6 +10,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { ROLES } from "../lib/roles";
 import { toMinor } from "../lib/money";
+import { TOGGLEABLE_MODULES, serializeModules } from "../lib/modules";
 
 const prisma = new PrismaClient();
 
@@ -96,6 +97,12 @@ async function main() {
       inviteCode: "SCH-SPRG-2026",
     },
   });
+
+  // BRANCHES — two "module profiles" the principal can switch between. Both start
+  // with all modules on; the principal tailors each in Settings → Branches.
+  const allModules = serializeModules(TOGGLEABLE_MODULES.map((m) => m.key));
+  await prisma.branch.create({ data: { name: "Branch 1", schoolId: school.id, isDefault: true, sortOrder: 0, enabledModules: allModules } });
+  await prisma.branch.create({ data: { name: "Branch 2", schoolId: school.id, isDefault: false, sortOrder: 1, enabledModules: allModules } });
 
   // A PAST academic year (inactive) so the year-switcher has something to show.
   await prisma.academicYear.create({

@@ -75,7 +75,9 @@
       "notifications": "સૂચનાઓ",
       "notificationsDesc": "તમને શેના વિશે જાણ કરવી તે પસંદ કરો",
       "logout": "લૉગ આઉટ",
-      "logoutDesc": "તમારા ખાતામાંથી સાઇન આઉટ કરો"
+      "logoutDesc": "તમારા ખાતામાંથી સાઇન આઉટ કરો",
+      "branches": "શાખાઓ",
+      "branchesDesc": "શાખાઓ અને તેમના મોડ્યુલ્સ સંચાલિત કરો"
     },
     "language": {
       "title": "ભાષા બદલો",

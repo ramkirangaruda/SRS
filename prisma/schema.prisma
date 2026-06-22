@@ -100,9 +100,37 @@ model School {
   supportMessages         SupportMessage[]
   activityLogs            ActivityLog[]
   notifications           Notification[]
+  branches                Branch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// A BRANCH is a "module profile" for a school. It does NOT split data (students,
+// fees, staff, etc. stay shared across branches) — it decides WHICH modules are
+// visible when the principal is working "in" that branch. The principal picks the
+// current branch from a switcher; the choice is remembered in a cookie and read
+// server-side to filter the navigation (see lib/branches.ts).
+//
+// Example (a childcare + tuition business):
+//   Branch 1 -> enabledModules ["toddlers","daycare"]
+//   Branch 2 -> enabledModules ["toddlers","daycare","tuitions"]
+model Branch {
+  id   String @id @default(cuid())
+  name String // "Branch 1" or a custom name the principal sets in Settings.
+  // JSON string array of module keys this branch shows (the codebase stores list
+  // data as stringified JSON — see schema header). Edited in Settings → Branches.
+  enabledModules String  @default("[]")
+  sortOrder      Int     @default(0) // order in the switcher dropdown
+  isDefault      Boolean @default(false) // selected when the cookie is unset/invalid
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
 }
 
 // Anyone who can log in. role is "PRINCIPAL" | "TEACHER" | "PARENT" (validated in

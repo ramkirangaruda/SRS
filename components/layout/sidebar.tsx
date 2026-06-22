@@ -14,14 +14,18 @@ import { LogoutButton } from "@/components/layout/logout-button";
 import { useUnread } from "@/components/unread-provider";
 import { unreadForHref, NavBadge } from "@/components/layout/nav-badge";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { BranchSwitcher } from "@/components/layout/branch-switcher";
 
 type SidebarProps = {
   items: NavItem[];
   userName: string;
   roleLabel: string;
+  // Branch switcher data (principal only; empty for other roles).
+  branches: { id: string; name: string }[];
+  currentBranchId: string;
 };
 
-export function Sidebar({ items, userName, roleLabel }: SidebarProps) {
+export function Sidebar({ items, userName, roleLabel, branches, currentBranchId }: SidebarProps) {
   const pathname = usePathname();
   const unread = useUnread();
 
@@ -32,6 +36,13 @@ export function Sidebar({ items, userName, roleLabel }: SidebarProps) {
         <span className="text-lg font-bold">SchoolSync</span>
         <NotificationBell />
       </div>
+
+      {/* Branch switcher (principal with 2+ branches). Hidden otherwise. */}
+      {branches.length >= 2 && (
+        <div className="border-b p-3">
+          <BranchSwitcher branches={branches} currentBranchId={currentBranchId} />
+        </div>
+      )}
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1 p-4">

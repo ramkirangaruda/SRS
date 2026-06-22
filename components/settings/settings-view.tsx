@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { CalendarRange, Building2, KeyRound, Share2, Users, LifeBuoy, Languages, ShieldCheck, Bell, LogOut, ChevronRight, ChevronLeft } from "lucide-react";
+import { CalendarRange, Building2, GitBranch, KeyRound, Share2, Users, LifeBuoy, Languages, ShieldCheck, Bell, LogOut, ChevronRight, ChevronLeft } from "lucide-react";
 import { ROLES } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { SupportSection } from "@/components/settings/sections/support-section";
 import { LanguageSection } from "@/components/settings/sections/language-section";
 import { LegalSection } from "@/components/settings/sections/legal-section";
 import { NotificationsSection } from "@/components/settings/sections/notifications-section";
+import { BranchesSection } from "@/components/settings/sections/branches-section";
 
 type SectionDef = { key: string; icon: React.ElementType; principalOnly?: boolean; render: () => React.ReactNode };
 
@@ -30,6 +31,7 @@ export function SettingsView({ role, locale, schoolName }: { role: string; local
   const ALL: SectionDef[] = [
     { key: "academicYear", icon: CalendarRange, principalOnly: true, render: () => <AcademicYearSection /> },
     { key: "schoolProfile", icon: Building2, principalOnly: true, render: () => <SchoolProfileSection /> },
+    { key: "branches", icon: GitBranch, principalOnly: true, render: () => <BranchesSection /> },
     { key: "changePassword", icon: KeyRound, render: () => <AccountSection /> },
     { key: "shareSchool", icon: Share2, principalOnly: true, render: () => <ShareSection /> },
     { key: "manageUsers", icon: Users, principalOnly: true, render: () => <UsersSection /> },
