@@ -86,20 +86,35 @@ export const authOptions: NextAuthOptions = {
         token.schoolId = (user as { schoolId: string }).schoolId;
         // Stamp when THIS token was issued — compared against passwordChangedAt.
         token.loginAt = Date.now();
+        // Mark as just-verified so we don't immediately re-query on the first request.
+        token.checkedAt = Date.now();
       }
       // On an explicit session.update() (e.g. right after the user changes their
       // OWN password), re-stamp loginAt so THIS device stays logged in while every
       // OTHER device (older loginAt) is invalidated by the check below.
-      if (trigger === "update" && token.id) token.loginAt = Date.now();
-      // SESSION INVALIDATION (runs on every server-side session read): if the
-      // user changed their password (or was deactivated) AFTER this token was
-      // issued, the token is stale → return an EMPTY token so the session has no
-      // user. We do the check here (Node) rather than edge middleware because
-      // Prisma can't run on the edge. Cost: one indexed lookup per session read.
-      if (token.id) {
+      if (trigger === "update" && token.id) {
+        token.loginAt = Date.now();
+        // Force an immediate DB recheck next request to pick up the new
+        // passwordChangedAt value (so other devices get blocked quickly).
+        token.checkedAt = 0;
+      }
+
+      // SESSION INVALIDATION — check at most once every 60 seconds per token.
+      // Without this guard, the code below would fire a DB query on every single
+      // authenticated request. With PgBouncer's small pool that means every page
+      // load burns a connection slot for auth bookkeeping alone.
+      // Consequence: after a forced logout (deactivate user / admin password reset)
+      // the old token stays valid for up to 60 seconds. That's an acceptable
+      // security trade-off for a school app (not banking).
+      const RECHECK_MS = 60_000;
+      const checkedAt = typeof token.checkedAt === "number" ? token.checkedAt : 0;
+
+      if (token.id && Date.now() - checkedAt > RECHECK_MS) {
         const u = await prisma.user.findUnique({ where: { id: token.id as string }, select: { isActive: true, passwordChangedAt: true } });
         if (!u || !u.isActive) return {};
         if (u.passwordChangedAt && typeof token.loginAt === "number" && u.passwordChangedAt.getTime() > token.loginAt) return {};
+        // Update checkedAt so we skip the next 60 seconds of checks.
+        token.checkedAt = Date.now();
       }
       return token;
     },

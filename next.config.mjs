@@ -34,6 +34,32 @@ const nextConfig = {
   // safety is still enforced — `next build` runs the TypeScript compiler and
   // fails on any type error. Run `npm run lint` separately to review style.
   eslint: { ignoreDuringBuilds: true },
+
+  // Security headers applied to every response. These are the safe subset that
+  // don't require CSP tuning (Razorpay Checkout loads a cross-origin script, which
+  // a restrictive CSP would block without a nonce/hash — deferred to a later pass).
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // Prevents browsers from MIME-sniffing a response away from the declared
+          // Content-Type. Stops e.g. a text/plain upload being executed as JS.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Disallows embedding the app in an <iframe> on another domain — blocks
+          // clickjacking attacks (attacker overlays a transparent iframe over their page).
+          { key: "X-Frame-Options", value: "DENY" },
+          // Legacy XSS filter for older browsers (modern ones use CSP instead).
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          // On cross-origin navigation, send only the origin (not full URL) in the
+          // Referer header — prevents leaking internal paths to third-party scripts.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Opt out of browser features the app doesn't use.
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
 };
 
 export default withPWA(withNextIntl(nextConfig));

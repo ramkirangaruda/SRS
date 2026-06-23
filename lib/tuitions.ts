@@ -30,7 +30,8 @@ export async function listBatches(schoolId: string): Promise<BatchRow[]> {
   const batches = await prisma.tuitionBatch.findMany({
     where: { schoolId },
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
-    include: { tutor: { select: { name: true } }, _count: { select: { enrollments: true } } },
+    // Only count ACTIVE enrollments so unenrolled students don't inflate expected fees.
+    include: { tutor: { select: { name: true } }, _count: { select: { enrollments: { where: { isActive: true } } } } },
   });
   const paid = await prisma.tuitionPayment.groupBy({ by: ["batchId"], where: { schoolId }, _sum: { amount: true } });
   const paidByBatch = new Map(paid.map((p) => [p.batchId, p._sum.amount ?? 0]));

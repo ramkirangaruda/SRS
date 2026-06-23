@@ -70,20 +70,42 @@ async function feeDefaulters(schoolId: string) {
   return defaulters;
 }
 
-// BIRTHDAYS today. NOTE: SQLite has no clean month/day extraction in Prisma, so we
-// load birthdays and match in JS (fine at school scale). On PostgreSQL you'd push
-// this into the DB: WHERE EXTRACT(MONTH FROM "dateOfBirth")=$1 AND EXTRACT(DAY..)=$2.
+// BIRTHDAYS today. We use Postgres EXTRACT to push the month/day filter into the
+// DB — only matching rows come back, not all non-null DOBs. On a large school with
+// 2,000 students this is the difference between transferring ~2,000 rows vs ~5.
 async function birthdaysToday(schoolId: string) {
   const now = new Date();
-  const m = now.getMonth(), d = now.getDate();
+  // EXTRACT(MONTH) is 1-indexed; JS getMonth() is 0-indexed.
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+
+  type StudentRow = { name: string; class_name: string | null };
+  type StaffRow = { name: string };
+
   const [students, staff] = await Promise.all([
-    prisma.student.findMany({ where: { schoolId, dateOfBirth: { not: null } }, select: { name: true, dateOfBirth: true, class: { select: { name: true } } } }),
-    prisma.staffMember.findMany({ where: { schoolId, dateOfBirth: { not: null } }, select: { dateOfBirth: true, user: { select: { name: true } } } }),
+    prisma.$queryRaw<StudentRow[]>`
+      SELECT s.name, c.name AS class_name
+      FROM "Student" s
+      LEFT JOIN "Class" c ON c.id = s."classId"
+      WHERE s."schoolId" = ${schoolId}
+        AND s."dateOfBirth" IS NOT NULL
+        AND EXTRACT(MONTH FROM s."dateOfBirth") = ${month}
+        AND EXTRACT(DAY   FROM s."dateOfBirth") = ${day}
+    `,
+    prisma.$queryRaw<StaffRow[]>`
+      SELECT u.name
+      FROM "StaffMember" sm
+      JOIN "User" u ON u.id = sm."userId"
+      WHERE sm."schoolId" = ${schoolId}
+        AND sm."dateOfBirth" IS NOT NULL
+        AND EXTRACT(MONTH FROM sm."dateOfBirth") = ${month}
+        AND EXTRACT(DAY   FROM sm."dateOfBirth") = ${day}
+    `,
   ]);
-  const isToday = (dob: Date | null) => !!dob && dob.getMonth() === m && dob.getDate() === d;
+
   return [
-    ...students.filter((s) => isToday(s.dateOfBirth)).map((s) => ({ name: s.name, detail: s.class?.name ?? "Student", kind: "student" as const })),
-    ...staff.filter((s) => isToday(s.dateOfBirth)).map((s) => ({ name: s.user.name, detail: "Staff", kind: "staff" as const })),
+    ...students.map((s) => ({ name: s.name, detail: s.class_name ?? "Student", kind: "student" as const })),
+    ...staff.map((s) => ({ name: s.name, detail: "Staff", kind: "staff" as const })),
   ];
 }
 

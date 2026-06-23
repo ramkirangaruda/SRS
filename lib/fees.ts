@@ -382,8 +382,10 @@ export type ClassReportRow = {
 };
 
 // CLASS-WISE REPORT. studentCount comes from a groupBy; collected per class uses
-// a relation-filtered aggregate (where the payment's student is in that class).
-// Classes are few, so the per-class aggregate loop is cheap and clear.
+// one raw JOIN+GROUP BY (Prisma's groupBy can't traverse relations). Previously
+// this was a loop that fired one aggregate per class — N sequential queries.
+// The raw query replaces all N with a single round-trip, which matters when a
+// school has many classes (each extra query costs a pool connection + RTT).
 export async function getClassReport(schoolId: string): Promise<ClassReportRow[]> {
   const yearId = await activeYearId(schoolId);
   const fmap = await feeMapForSchool(schoolId, yearId);
@@ -400,16 +402,23 @@ export async function getClassReport(schoolId: string): Promise<ClassReportRow[]
     ).map((g) => [g.classId, g._count._all])
   );
 
-  const rows: ClassReportRow[] = [];
-  for (const c of classes) {
+  // One query: join FeePayment → Student to get SUM(amount) per classId.
+  // Prisma returns bigint for raw SQL aggregates; Number() converts safely
+  // (school-scale totals fit comfortably in a JS double).
+  const collectedRows = await prisma.$queryRaw<{ classId: string; collected: bigint }[]>`
+    SELECT s."classId", COALESCE(SUM(fp.amount), 0) AS collected
+    FROM "FeePayment" fp
+    JOIN "Student" s ON s.id = fp."studentId"
+    WHERE fp."schoolId" = ${schoolId}
+    GROUP BY s."classId"
+  `;
+  const collectedByClass = new Map(collectedRows.map((r) => [r.classId, Number(r.collected)]));
+
+  return classes.map((c) => {
     const students = countsByClass.get(c.id) ?? 0;
     const expected = (fmap.get(c.id) ?? 0) * students;
-    const agg = await prisma.feePayment.aggregate({
-      where: { schoolId, student: { classId: c.id } },
-      _sum: { amount: true },
-    });
-    const collected = agg._sum.amount ?? 0;
-    rows.push({
+    const collected = collectedByClass.get(c.id) ?? 0;
+    return {
       classId: c.id,
       className: c.name,
       students,
@@ -417,9 +426,8 @@ export async function getClassReport(schoolId: string): Promise<ClassReportRow[]
       collected,
       pending: Math.max(0, expected - collected),
       percentage: percent(collected, expected),
-    });
-  }
-  return rows;
+    };
+  });
 }
 
 // PARENT: fee summary for each of a parent's children (ownership via parentId).
