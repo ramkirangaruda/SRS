@@ -89,21 +89,25 @@ async function birthdaysToday(schoolId: string) {
 
 export async function principalDashboard(schoolId: string) {
   const lastMonthStart = new Date(); lastMonthStart.setMonth(lastMonthStart.getMonth() - 1); lastMonthStart.setDate(1); lastMonthStart.setHours(0, 0, 0, 0);
-  // ALL queries fire together — total time ≈ the slowest, not the sum.
-  const [
-    studentCount, studentsAddedThisMonth, attendance, fees, pendingFeedback, visitors, upcoming,
-    followUps, pendingAdmissions, low, defaulters, menu, birthdays, daycare, activity,
-  ] = await Promise.all([
+  // Run in three batches of ~5 instead of one 15-wide Promise.all. Firing 15
+  // queries at once can exhaust a small DB connection pool — each waits on a
+  // connection, and if too many wait past the pool timeout the whole request 500s.
+  // Batching keeps the dashboard fast while staying within the pool.
+  const [studentCount, studentsAddedThisMonth, attendance, fees, pendingFeedback] = await Promise.all([
     prisma.student.count({ where: { schoolId } }),
     prisma.student.count({ where: { schoolId, createdAt: { gte: monthStart() } } }),
     todayAttendancePct(schoolId),
     getFeeSummary(schoolId),
     prisma.feedback.count({ where: { schoolId, status: { not: "RESOLVED" } } }),
+  ]);
+  const [visitors, upcoming, followUps, pendingAdmissions, low] = await Promise.all([
     visitorTodayCounts(schoolId),
     listUpcoming(schoolId, 7),
     followUpsToday(schoolId),
     prisma.admissionQuery.findMany({ where: { schoolId, status: "PENDING" }, select: { id: true, studentName: true, classAppliedFor: true, createdAt: true }, orderBy: { createdAt: "asc" }, take: 5 }),
     lowAttendance(schoolId),
+  ]);
+  const [defaulters, menu, birthdays, daycare, activity] = await Promise.all([
     feeDefaulters(schoolId),
     todayMenu(schoolId, "SCHOOL"),
     birthdaysToday(schoolId),
