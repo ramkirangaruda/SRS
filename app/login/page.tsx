@@ -86,9 +86,11 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 autoComplete="email"
+                autoFocus
                 placeholder="you@school.edu"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                disabled={loading}
                 required
               />
             </div>
@@ -100,7 +102,8 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                disabled={loading}
                 required
               />
             </div>
