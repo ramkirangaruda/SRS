@@ -120,13 +120,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Demo credentials so you can log in immediately after seeding. */}
-          <div className="mt-6 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">Demo accounts (from seed):</p>
-            <p>Principal — principal@school.edu / password123</p>
-            <p>Parent — parent@school.edu / password123</p>
-          </div>
-
           {/* Public legal links — required to be reachable without logging in. */}
           <div className="mt-4 text-center text-xs text-muted-foreground">
             <a href="/settings/privacy-policy" className="hover:underline">Privacy Policy</a>
